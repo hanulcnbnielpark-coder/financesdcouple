@@ -1864,49 +1864,54 @@ async function loadFromSheets() {
       
       if (d.daily) {
         const fixDates = list => list.map(item => ({...item, date: normalizeDate(item.date)}));
+        const rawKeys = Object.keys(d.daily);
+        console.log('[쑥둥] Raw daily keys:', rawKeys, 'Raw daily:', JSON.stringify(d.daily).substring(0, 300));
         
-        // Collect ALL items first, then distribute by date
-        const allIncome = [];
-        const allExpenses = [];
-        
+        let recovered = false;
         Object.entries(d.daily).forEach(([m, v]) => {
           const key = String(m);
-          console.log('[쑥둥] Processing daily key:', key, 'income:', (v.income||[]).length, 'exp:', (v.expenses||[]).length);
+          const inc = v.income || [];
+          const exp = v.expenses || [];
+          console.log('[쑥둥] Key:', JSON.stringify(key), 'type:', typeof m, 'income:', inc.length, 'exp:', exp.length);
           
-          if (key === 'NaN' || key === 'undefined' || key === 'null') {
-            // NaN key: distribute items by their date field
-            (v.income||[]).forEach(item => allIncome.push(item));
-            (v.expenses||[]).forEach(item => allExpenses.push(item));
-          } else if (key.includes('-') && !key.includes('NaN')) {
-            // Already year-month format like "2026-4"
-            const items = { income: fixDates(v.income||[]), expenses: fixDates(v.expenses||[]) };
-            if (!state.daily[key]) state.daily[key] = { income:[], expenses:[] };
-            state.daily[key] = items;
-          } else {
-            // Old numeric month key
+          // Valid year-month key (e.g. "2026-4")
+          if (/^\d{4}-\d{1,2}$/.test(key)) {
+            state.daily[key] = { income: fixDates(inc), expenses: fixDates(exp) };
+            recovered = true;
+          }
+          // Numeric month key (e.g. "4" or 4)
+          else if (/^\d{1,2}$/.test(key)) {
             const mk = dk(state.year, Number(key));
-            if (!mk.includes('NaN')) {
-              state.daily[mk] = { income: fixDates(v.income||[]), expenses: fixDates(v.expenses||[]) };
-            }
+            state.daily[mk] = { income: fixDates(inc), expenses: fixDates(exp) };
+            recovered = true;
+          }
+          // NaN or any other bad key: distribute by date
+          else if (inc.length > 0 || exp.length > 0) {
+            console.log('[쑥둥] Recovering from bad key:', key);
+            [...inc, ...exp].forEach(item => {
+              const dt = normalizeDate(item.date);
+              const parts = dt.split('-');
+              let yr = state.year, mo = state.month;
+              if (parts.length >= 2) { yr = Number(parts[0]) || state.year; mo = Number(parts[1]) || state.month; }
+              const bucket = dk(yr, mo);
+              if (!state.daily[bucket]) state.daily[bucket] = { income:[], expenses:[] };
+              item.date = dt;
+              if (inc.includes(item)) state.daily[bucket].income.push(item);
+              else state.daily[bucket].expenses.push(item);
+            });
+            recovered = true;
           }
         });
         
-        // Distribute NaN items to correct month buckets by date
-        [...allIncome, ...allExpenses].length && console.log('[쑥둥] Recovering', allIncome.length, 'income +', allExpenses.length, 'expense items from NaN key');
-        const distribute = (items, type) => {
-          items.forEach(item => {
-            const d = normalizeDate(item.date);
-            const parts = d.split('-');
-            let yr = state.year, mo = state.month;
-            if (parts.length >= 2) { yr = Number(parts[0]) || state.year; mo = Number(parts[1]) || state.month; }
-            const key = dk(yr, mo);
-            if (!state.daily[key]) state.daily[key] = { income:[], expenses:[] };
-            item.date = d;
-            state.daily[key][type].push(item);
-          });
-        };
-        distribute(allIncome, 'income');
-        distribute(allExpenses, 'expenses');
+        if (!recovered && rawKeys.length > 0) {
+          console.warn('[쑥둥] No keys recovered! Trying brute force...');
+          // Last resort: dump everything into current month
+          const allItems = d.daily[rawKeys[0]];
+          if (allItems) {
+            const curKey = dk(state.year, state.month);
+            state.daily[curKey] = { income: fixDates(allItems.income||[]), expenses: fixDates(allItems.expenses||[]) };
+          }
+        }
       }
       if (d.fixed && d.fixed.length > 0) state.fixed = d.fixed;
       if (d.savings && d.savings.length > 0) state.savings = d.savings;
@@ -1960,13 +1965,23 @@ async function testConnection() {
 
 async function manualLoad() {
   showSyncStatus('시트에서 불러오는 중...', 'var(--blue)');
+  try {
+    // First, peek at raw response
+    const rawRes = await fetch(state.gasUrl + '?action=read&t=' + Date.now(), { redirect: 'follow' });
+    const rawResult = await rawRes.json();
+    const rawDailyKeys = rawResult.data?.daily ? Object.keys(rawResult.data.daily) : ['없음'];
+    const rawDailyCount = rawResult.data?.daily ? Object.values(rawResult.data.daily).reduce((s,v) => s + (v.income||[]).length + (v.expenses||[]).length, 0) : 0;
+    console.log('[쑥둥] RAW daily keys:', rawDailyKeys, 'total items:', rawDailyCount);
+  } catch(e) {}
+
   const ok = await loadFromSheets();
   if (ok) {
     const curKey = dk(state.year, state.month);
     const cd = state.daily[curKey] || {};
-    showSyncStatus(`✓ 불러오기 완료 — 고정비 ${state.fixed.length}건, ${state.month}월 수입 ${cd.income?.length||0}건 지출 ${cd.expenses?.length||0}건`, 'var(--green)');
+    const allKeys = Object.keys(state.daily).filter(k => !k.includes('NaN'));
+    showSyncStatus(`✓ 완료 — 고정비 ${state.fixed.length}건, 키[${allKeys.join(',')}], ${state.month}월: 수입 ${cd.income?.length||0} 지출 ${cd.expenses?.length||0}건`, 'var(--green)');
   } else {
-    showSyncStatus('⚠ 불러오기 실패 — GAS URL 확인 또는 브라우저 콘솔(F12) 확인', 'var(--red)');
+    showSyncStatus('⚠ 불러오기 실패 — 브라우저 F12 콘솔 확인', 'var(--red)');
   }
 }
 
