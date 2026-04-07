@@ -197,6 +197,20 @@ body {
   border-top: 1px solid var(--border); margin-top: 20px;
 }
 
+/* 쑥/둥 selector */
+.who-sel {
+  display: flex; gap: 2px; background: var(--card2); border-radius: 6px; padding: 2px;
+  border: 1px solid var(--border);
+}
+.who-sel button {
+  border: none; background: none; padding: 4px 10px; border-radius: 4px;
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  color: var(--sub); transition: all 0.15s;
+}
+.who-sel button.active-suk { background: #FF85C0; color: #fff; }
+.who-sel button.active-dung { background: #74C0FC; color: #fff; }
+.who-sel button.active-both { background: #A9E34B; color: #1a1a1a; }
+
 /* Responsive */
 @media (max-width: 640px) {
   .header { padding: 12px 16px; }
@@ -546,7 +560,7 @@ function renderDashboard() {
     statCardHTML(`${m}월 지출`, md.totalExpense, 'var(--red)', `고정 ${fmt(md.fixedExpense)} + 변동 ${fmt(md.dailyExpense)}`),
     statCardHTML('순이익', md.net, md.net >= 0 ? 'var(--green)' : 'var(--red)', md.income > 0 ? `저축률 ${Math.round(md.net/md.income*100)}%` : ''),
     statCardHTML('순자산', totals.netWorth, 'var(--blue)'),
-  ].join('');
+  ].join('') + whoBreakdownHTML(m);
 
   // Trend Chart
   const trendData = MONTHS_KR.map((label, i) => {
@@ -611,17 +625,20 @@ function renderDashboard() {
     ...(daily.income || []).map(i => ({...i, type:'income'})),
     ...(daily.expenses || []).map(e => ({...e, type:'expense'})),
   ].sort((a,b) => b.date?.localeCompare(a.date) || 0).slice(0, 6);
-  document.getElementById('recentTx').innerHTML = allTx.length ? allTx.map(tx => 
-    `<div class="list-row">
+  document.getElementById('recentTx').innerHTML = allTx.length ? allTx.map(tx => {
+    const whoTag = tx.who === '쑥' ? '<span style="background:#FF85C0;color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px">쑥</span>'
+      : tx.who === '둥' ? '<span style="background:#74C0FC;color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px">둥</span>'
+      : tx.who === '공동' ? '<span style="background:#A9E34B;color:#1a1a1a;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px">공동</span>' : '';
+    return `<div class="list-row">
       <div class="left">
-        <div class="name">${tx.desc}</div>
+        <div class="name">${whoTag}${tx.desc}</div>
         <div class="desc">${tx.date || ''} · ${tx.cat}${tx.source ? ' · '+tx.source : ''}</div>
       </div>
       <div class="amount" style="color:${tx.type==='income'?'var(--blue)':'var(--red)'}">
         ${tx.type==='income'?'+':'−'}${fmtFull(tx.amount)}
       </div>
-    </div>`
-  ).join('') : '<div style="color:var(--sub);text-align:center;padding:20px;font-size:13px">이번 달 거래 내역이 없습니다</div>';
+    </div>`;
+  }).join('') : '<div style="color:var(--sub);text-align:center;padding:20px;font-size:14px">이번 달 거래 내역이 없습니다</div>';
 }
 
 function chartOpts(gridColor, textColor) {
@@ -643,6 +660,34 @@ function statCardHTML(label, value, color, sub) {
     <div class="stat-label">${label}</div>
     <div class="stat-value" style="color:${color||'var(--text)'}">${fmt(value)}</div>
     ${sub ? `<div class="stat-sub" style="color:var(--sub)">${sub}</div>` : ''}
+  </div>`;
+}
+
+function whoBreakdownHTML(m) {
+  const daily = state.daily[m] || { income:[], expenses:[] };
+  const allExp = [...daily.expenses, ...state.fixed];
+  const sukExp = allExp.filter(e => e.who === '쑥').reduce((s,e) => s+e.amount, 0);
+  const dungExp = allExp.filter(e => e.who === '둥').reduce((s,e) => s+e.amount, 0);
+  const bothExp = allExp.filter(e => e.who === '공동' || !e.who).reduce((s,e) => s+e.amount, 0);
+  const total = sukExp + dungExp + bothExp || 1;
+  const sukPct = (sukExp/total*100).toFixed(0);
+  const dungPct = (dungExp/total*100).toFixed(0);
+  const bothPct = (bothExp/total*100).toFixed(0);
+
+  return `<div style="width:100%;margin-top:4px;background:var(--card);border-radius:var(--radius);padding:14px 18px;border:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:14px;font-weight:700">쑥·둥 지출 비교</span>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:10px;font-size:13px">
+      <span>🩷 쑥 <b style="color:#FF85C0">${fmt(sukExp)}</b> (${sukPct}%)</span>
+      <span>💙 둥 <b style="color:#74C0FC">${fmt(dungExp)}</b> (${dungPct}%)</span>
+      <span>🤝 공동 <b>${fmt(bothExp)}</b> (${bothPct}%)</span>
+    </div>
+    <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--border)">
+      <div style="width:${sukPct}%;background:#FF85C0;transition:width 0.4s"></div>
+      <div style="width:${dungPct}%;background:#74C0FC;transition:width 0.4s"></div>
+      <div style="width:${bothPct}%;background:#A9E34B;transition:width 0.4s"></div>
+    </div>
   </div>`;
 }
 
@@ -671,14 +716,20 @@ function renderDaily() {
 }
 
 function dailyRowHTML(item, type, cats) {
+  const w = item.who || '';
   return `<div class="form-row" data-id="${item.id}">
+    <div class="who-sel">
+      <button class="${w==='쑥'?'active-suk':''}" onclick="updateDaily('${type}','${item.id}','who','쑥')">쑥</button>
+      <button class="${w==='둥'?'active-dung':''}" onclick="updateDaily('${type}','${item.id}','who','둥')">둥</button>
+      <button class="${w==='공동'?'active-both':''}" onclick="updateDaily('${type}','${item.id}','who','공동')">공동</button>
+    </div>
     <input type="date" class="form-input" value="${item.date||''}" onchange="updateDaily('${type}','${item.id}','date',this.value)">
     <select class="form-select" onchange="updateDaily('${type}','${item.id}','cat',this.value)">
       <option value="">분류</option>
       ${cats.map(c => `<option value="${c}" ${item.cat===c?'selected':''}>${c}</option>`).join('')}
     </select>
     <input class="form-input" style="flex:2" value="${item.desc}" placeholder="내용" onchange="updateDaily('${type}','${item.id}','desc',this.value)">
-    <input class="form-input" style="flex:1.5" value="${item.source||''}" placeholder="${type==='income'?'입금처':'사용처'}" onchange="updateDaily('${type}','${item.id}','source',this.value)">
+    <input class="form-input" style="flex:1.2" value="${item.source||''}" placeholder="${type==='income'?'입금처':'사용처'}" onchange="updateDaily('${type}','${item.id}','source',this.value)">
     <input class="form-input" style="width:130px;text-align:right" value="${item.amount ? item.amount.toLocaleString() : ''}" placeholder="금액"
       oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
       onchange="updateDaily('${type}','${item.id}','amount',Number(this.value.replace(/,/g,'')))">
@@ -688,7 +739,7 @@ function dailyRowHTML(item, type, cats) {
 
 function addDailyRow(type) {
   const m = state.month;
-  const newItem = { id: uid(), date: todayStr(), cat: '', desc: '', source: '', amount: 0 };
+  const newItem = { id: uid(), date: todayStr(), cat: '', desc: '', source: '', who: '', amount: 0 };
   if (type === 'income') state.daily[m].income.push(newItem);
   else state.daily[m].expenses.push(newItem);
   saveState(); renderDaily();
@@ -712,17 +763,25 @@ function removeDaily(type, id) {
 // ==================== RENDER: FIXED ====================
 function renderFixed() {
   const total = state.fixed.reduce((s, f) => s + f.amount, 0);
-  const cardTotal = state.fixed.filter(f => f.method?.includes('카드')).reduce((s,f) => s+f.amount, 0);
-  const cashTotal = total - cardTotal;
+  const sukTotal = state.fixed.filter(f => f.who === '쑥').reduce((s,f) => s+f.amount, 0);
+  const dungTotal = state.fixed.filter(f => f.who === '둥').reduce((s,f) => s+f.amount, 0);
+  const bothTotal = total - sukTotal - dungTotal;
 
   document.getElementById('fixedStats').innerHTML = [
     statCardHTML('고정비 합계', total, 'var(--orange)'),
-    statCardHTML('카드 결제', cardTotal, 'var(--purple)'),
-    statCardHTML('현금/이체', cashTotal, 'var(--sub)'),
+    statCardHTML('🩷 쑥', sukTotal, '#FF85C0'),
+    statCardHTML('💙 둥', dungTotal, '#74C0FC'),
+    statCardHTML('공동', bothTotal, 'var(--sub)'),
   ].join('');
 
-  document.getElementById('fixedList').innerHTML = state.fixed.map(f => 
-    `<div class="form-row" data-id="${f.id}">
+  document.getElementById('fixedList').innerHTML = state.fixed.map(f => {
+    const w = f.who || '';
+    return `<div class="form-row" data-id="${f.id}">
+      <div class="who-sel">
+        <button class="${w==='쑥'?'active-suk':''}" onclick="updateFixed('${f.id}','who','쑥')">쑥</button>
+        <button class="${w==='둥'?'active-dung':''}" onclick="updateFixed('${f.id}','who','둥')">둥</button>
+        <button class="${w==='공동'?'active-both':''}" onclick="updateFixed('${f.id}','who','공동')">공동</button>
+      </div>
       <select class="form-select" style="min-width:75px" onchange="updateFixed('${f.id}','cat',this.value)">
         ${CATS_FIXED.map(c => `<option value="${c}" ${f.cat===c?'selected':''}>${c}</option>`).join('')}
       </select>
@@ -735,8 +794,8 @@ function renderFixed() {
         ${PAYMENT_METHODS.map(p => `<option value="${p}" ${f.method===p?'selected':''}>${p}</option>`).join('')}
       </select>
       <button class="btn-del" onclick="removeFixed('${f.id}')">✕</button>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 function addFixedRow() {
