@@ -38,10 +38,11 @@ body {
   padding: 14px 24px; border-bottom: 1px solid var(--border);
   background: var(--card); position: sticky; top: 0; z-index: 100;
 }
-.logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+.logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .logo span { color: var(--blue); }
+.logo .logo-text { display: inline; }
 .badge { font-size: 11px; background: var(--card2); padding: 2px 7px; border-radius: 5px; color: var(--sub); font-weight: 600; }
-.header-controls { display: flex; align-items: center; gap: 8px; }
+.header-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 /* Month Selector */
 .month-sel {
@@ -233,9 +234,11 @@ body {
 /* ===== Mobile ===== */
 @media (max-width: 640px) {
   html { font-size: 14px; }
-  .header { padding: 10px 14px; }
+  .header { padding: 10px 14px; gap: 8px; }
   .header-controls { gap: 6px; }
-  .logo { font-size: 17px; }
+  .logo { font-size: 16px; gap: 6px; }
+  .logo .logo-text { display: none; }
+  .badge { font-size: 10px; padding: 2px 5px; }
   .content { padding: 12px 12px; }
   .tabs { padding: 0 12px; gap: 0; }
   .tab-btn { padding: 10px 12px; font-size: 13px; }
@@ -264,7 +267,8 @@ body {
   .bs-row.large { font-size: 14px; }
   .progress-header { font-size: 12px; }
   .sync-btn { font-size: 11px; padding: 4px 8px; }
-  .month-sel .month-label { font-size: 13px; }
+  .month-sel .month-label { font-size: 13px; min-width: 40px; }
+  .month-sel button { width: 24px; height: 24px; font-size: 12px; }
 }
 
 /* ===== Very small phone ===== */
@@ -284,7 +288,7 @@ body {
 
 <!-- Header -->
 <div class="header">
-  <div class="logo"><span>쑥둥</span> 가계부 <span class="badge">2026</span></div>
+  <div class="logo"><span>쑥둥</span><span class="logo-text"> 가계부</span> <span class="badge">2026</span></div>
   <div class="header-controls">
     <div class="month-sel">
       <button onclick="changeMonth(-1)">◀</button>
@@ -511,18 +515,21 @@ let state = {
   fixedAssets: [],
   liabilities: [],
   // Settings
-  gasUrl: '',
+  gasUrl: 'https://script.google.com/macros/s/AKfycbybhBsw4-jZ3CAP6KrVP7Vok6IEQp9GI5vLML-YlnxYcrAF8nL45n2Y_uI1zfNulSFmeQ/exec',
   sheetId: '',
   exchangeRate: 1400,
 };
 
 function loadState() {
   try {
+    const defaultGasUrl = state.gasUrl;
     const saved = localStorage.getItem(STORE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       state = { ...state, ...parsed };
     }
+    // Ensure GAS URL is set
+    if (!state.gasUrl) state.gasUrl = defaultGasUrl;
     // Init months
     for (let m = 1; m <= 12; m++) {
       if (!state.daily[m]) state.daily[m] = { income: [], expenses: [] };
@@ -1266,6 +1273,11 @@ function renderAll() {
 loadTheme();
 loadState();
 renderAll();
+
+// Auto-fetch prices on load if GAS URL is set
+if (state.gasUrl) {
+  fetchPrices().catch(() => {});
+}
 </script>
 </body>
 </html>
