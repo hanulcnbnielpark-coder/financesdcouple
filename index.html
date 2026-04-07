@@ -704,9 +704,21 @@ function getMonthData(m) {
   };
 }
 
+function getInvestmentValue(inv) {
+  const isUS = inv.market === '미국';
+  const curRate = state.exchangeRate || 1400;
+  const buyExRate = inv.buyExRate || curRate;
+  // 투자원금 (원화)
+  const invested = isUS ? (inv.qty||0) * (inv.avgPrice||0) * buyExRate : (inv.amount || (inv.qty||0) * (inv.avgPrice||0));
+  // 현재 평가액 (원화)
+  const cp = inv.currentPrice || 0;
+  const valuation = cp ? (isUS ? cp * (inv.qty||0) * curRate : cp * (inv.qty||0)) : invested;
+  return { invested, valuation };
+}
+
 function getTotals() {
   const sav = state.savings.reduce((s, a) => s + a.amount, 0);
-  const inv = state.investments.reduce((s, a) => s + a.amount, 0);
+  const inv = state.investments.reduce((s, a) => s + getInvestmentValue(a).valuation, 0);
   const fix = state.fixedAssets.reduce((s, a) => s + a.amount, 0);
   const lia = state.liabilities.reduce((s, a) => s + a.amount, 0);
   return { savings: sav, investments: inv, fixedAssets: fix, liabilities: lia, totalAssets: sav+inv+fix, netWorth: sav+inv+fix-lia };
@@ -1199,6 +1211,13 @@ function renderInvestments() {
   const list = state.investments || [];
   const fmtAmt = (v) => v ? v.toLocaleString() : '';
   const curRate = state.exchangeRate || 1400;
+
+  // Auto-fill buyExRate for US stocks
+  let needSave = false;
+  list.forEach(inv => {
+    if (inv.market === '미국' && !inv.buyExRate) { inv.buyExRate = curRate; needSave = true; }
+  });
+  if (needSave) saveState();
   
   document.getElementById('investmentsList').innerHTML = list.length ? list.map(inv => {
     const isUS = inv.market === '미국';
@@ -1222,7 +1241,7 @@ function renderInvestments() {
         <input class="form-input" style="flex:1.2;min-width:90px" value="${inv.name||''}" placeholder="종목명" onchange="updateAsset('investments','${inv.id}','name',this.value)">
         <input class="form-input" style="width:65px;font-size:12px;color:var(--sub)" value="${inv.code||''}" placeholder="코드" onchange="updateAsset('investments','${inv.id}','code',this.value)">
         <input class="form-input" style="width:65px;font-size:12px" value="${inv.broker||''}" placeholder="증권사" onchange="updateAsset('investments','${inv.id}','broker',this.value)">
-        <select class="form-select" style="width:55px;font-size:12px" onchange="updateAsset('investments','${inv.id}','market',this.value)">
+        <select class="form-select" style="width:55px;font-size:12px" onchange="updateAsset('investments','${inv.id}','market',this.value);if(this.value==='미국'&&!state.investments.find(x=>x.id==='${inv.id}')?.buyExRate){updateAsset('investments','${inv.id}','buyExRate',state.exchangeRate||1400)}">
           <option value="-" ${inv.market==='-'?'selected':''}>-</option>
           <option value="국내" ${inv.market==='국내'?'selected':''}>국내</option>
           <option value="미국" ${inv.market==='미국'?'selected':''}>미국</option>
@@ -1617,7 +1636,7 @@ function renderBalance() {
     ${bsRow('유동자산 소계', t.savings, true, 'var(--blue)')}
     
     <div class="bs-section-title">투자자산</div>
-    ${state.investments.map(i => bsRow(i.name, i.amount)).join('')}
+    ${state.investments.map(i => bsRow(i.name, getInvestmentValue(i).valuation)).join('')}
     ${bsRow('투자자산 소계', t.investments, true, 'var(--green)')}
     
     <div class="bs-section-title">고정자산</div>
