@@ -1856,32 +1856,57 @@ async function loadFromSheets() {
     console.log('[쑥둥] Loading from:', state.gasUrl);
     const res = await fetch(state.gasUrl + '?action=read&t=' + Date.now(), { redirect: 'follow' });
     const result = await res.json();
-    console.log('[쑥둥] Response status:', result.status, 'has daily:', !!result.data?.daily);
+    console.log('[쑥둥] Full response:', JSON.stringify(result).substring(0, 500));
     if (result.status === 'ok' && result.data) {
       const d = result.data;
+      const dailyKeys = d.daily ? Object.keys(d.daily) : [];
+      console.log('[쑥둥] Daily keys from GAS:', dailyKeys);
+      
       if (d.daily) {
-        // Merge loaded data with year-month keys
         const fixDates = list => list.map(item => ({...item, date: normalizeDate(item.date)}));
+        
+        // Collect ALL items first, then distribute by date
+        const allIncome = [];
+        const allExpenses = [];
+        
         Object.entries(d.daily).forEach(([m, v]) => {
-          let key;
-          if (String(m).includes('NaN') || String(m).includes('undefined')) {
-            // Recover month from first item's date
-            const items = [...(v.income||[]), ...(v.expenses||[])];
-            if (items.length > 0 && items[0].date) {
-              const dt = normalizeDate(items[0].date);
-              const parts = dt.split('-');
-              if (parts.length >= 2) key = state.year + '-' + Number(parts[1]);
-            }
-            if (!key) return;
+          const key = String(m);
+          console.log('[쑥둥] Processing daily key:', key, 'income:', (v.income||[]).length, 'exp:', (v.expenses||[]).length);
+          
+          if (key === 'NaN' || key === 'undefined' || key === 'null') {
+            // NaN key: distribute items by their date field
+            (v.income||[]).forEach(item => allIncome.push(item));
+            (v.expenses||[]).forEach(item => allExpenses.push(item));
+          } else if (key.includes('-') && !key.includes('NaN')) {
+            // Already year-month format like "2026-4"
+            const items = { income: fixDates(v.income||[]), expenses: fixDates(v.expenses||[]) };
+            if (!state.daily[key]) state.daily[key] = { income:[], expenses:[] };
+            state.daily[key] = items;
           } else {
-            key = String(m).includes('-') ? m : dk(state.year, Number(m));
+            // Old numeric month key
+            const mk = dk(state.year, Number(key));
+            if (!mk.includes('NaN')) {
+              state.daily[mk] = { income: fixDates(v.income||[]), expenses: fixDates(v.expenses||[]) };
+            }
           }
-          if (key.includes('NaN')) return;
-          state.daily[key] = {
-            income: fixDates(v.income || []),
-            expenses: fixDates(v.expenses || []),
-          };
         });
+        
+        // Distribute NaN items to correct month buckets by date
+        [...allIncome, ...allExpenses].length && console.log('[쑥둥] Recovering', allIncome.length, 'income +', allExpenses.length, 'expense items from NaN key');
+        const distribute = (items, type) => {
+          items.forEach(item => {
+            const d = normalizeDate(item.date);
+            const parts = d.split('-');
+            let yr = state.year, mo = state.month;
+            if (parts.length >= 2) { yr = Number(parts[0]) || state.year; mo = Number(parts[1]) || state.month; }
+            const key = dk(yr, mo);
+            if (!state.daily[key]) state.daily[key] = { income:[], expenses:[] };
+            item.date = d;
+            state.daily[key][type].push(item);
+          });
+        };
+        distribute(allIncome, 'income');
+        distribute(allExpenses, 'expenses');
       }
       if (d.fixed && d.fixed.length > 0) state.fixed = d.fixed;
       if (d.savings && d.savings.length > 0) state.savings = d.savings;
@@ -1898,9 +1923,16 @@ async function loadFromSheets() {
           ...li, startDate: normalizeDate(li.startDate),
         }));
       }
+
+      // Debug: show data summary
+      const curKey = dk(state.year, state.month);
+      const curDaily = state.daily[curKey];
+      const summary = `고정비 ${state.fixed.length}건, 일별 키 [${Object.keys(state.daily).join(',')}], ${state.month}월(${curKey}): 수입 ${curDaily?.income?.length||0}, 지출 ${curDaily?.expenses?.length||0}`;
+      console.log('[쑥둥] Summary:', summary);
+      showSyncStatus('📊 ' + summary, 'var(--blue)');
+
       saveState();
       renderAll();
-      // Fetch prices in background (don't block loading)
       fetchPrices().catch(e => console.log('[쑥둥] Price fetch:', e));
       return true;
     }
@@ -1930,9 +1962,11 @@ async function manualLoad() {
   showSyncStatus('시트에서 불러오는 중...', 'var(--blue)');
   const ok = await loadFromSheets();
   if (ok) {
-    showSyncStatus(`✓ 불러오기 완료 (${new Date().toLocaleTimeString()})`, 'var(--green)');
+    const curKey = dk(state.year, state.month);
+    const cd = state.daily[curKey] || {};
+    showSyncStatus(`✓ 불러오기 완료 — 고정비 ${state.fixed.length}건, ${state.month}월 수입 ${cd.income?.length||0}건 지출 ${cd.expenses?.length||0}건`, 'var(--green)');
   } else {
-    showSyncStatus('⚠ 불러오기 실패', 'var(--red)');
+    showSyncStatus('⚠ 불러오기 실패 — GAS URL 확인 또는 브라우저 콘솔(F12) 확인', 'var(--red)');
   }
 }
 
