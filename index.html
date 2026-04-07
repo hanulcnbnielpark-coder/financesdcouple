@@ -1288,35 +1288,50 @@ function addFixedAsset() {
   saveState(); renderAssets();
 }
 
+function getAutoResidualRate(fa) {
+  const text = ((fa.name||'') + ' ' + (fa.note||'')).toLowerCase();
+  if (/아파트|부동산|오피스텔|빌라|주택|토지/.test(text)) return 95;
+  if (/차|자동차|전기차|ev|suv|세단|캐스퍼|아이오닉|테슬라/.test(text)) return 30;
+  if (/가전|냉장고|세탁기|에어컨|건조기/.test(text)) return 10;
+  if (/컴퓨터|노트북|맥북|아이패드|태블릿|모니터/.test(text)) return 5;
+  if (/가구|소파|침대|책상/.test(text)) return 10;
+  return 10;
+}
+
 function renderFixedAssetsWithDepreciation() {
   const list = state.fixedAssets || [];
   const fmtA = v => v ? v.toLocaleString() : '';
   const now = new Date();
 
-  // Ensure defaults are set in state
+  // Ensure defaults
   let needSave = false;
   list.forEach(fa => {
     if (!fa.depYears || fa.depYears <= 0) { fa.depYears = 5; needSave = true; }
     if (fa.purchaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(fa.purchaseDate)) {
       fa.purchaseDate = normalizeDate(fa.purchaseDate); needSave = true;
     }
+    if (fa.residualRate === undefined || fa.residualRate === null) {
+      fa.residualRate = getAutoResidualRate(fa); needSave = true;
+    }
   });
   if (needSave) saveState();
 
   document.getElementById('fixedAssetsList').innerHTML = list.length ? list.map(fa => {
     const years = fa.depYears;
+    const residualRate = fa.residualRate ?? 10;
     const hasDate = fa.purchaseDate && fa.amount > 0;
 
-    // Auto depreciation calculation (정액법)
     let depHTML = '';
     if (hasDate) {
       const pDate = new Date(fa.purchaseDate);
       const monthsElapsed = Math.max(0, (now.getFullYear()-pDate.getFullYear())*12 + (now.getMonth()-pDate.getMonth()));
       const totalMonths = years * 12;
-      const monthlyDep = fa.amount / totalMonths;
-      const accumulated = Math.min(Math.round(monthlyDep * monthsElapsed), fa.amount);
-      const currentVal = Math.max(fa.amount - accumulated, 0);
-      const depPct = Math.min(monthsElapsed / totalMonths * 100, 100);
+      const residualValue = Math.round(fa.amount * residualRate / 100);
+      const depBase = fa.amount - residualValue;
+      const monthlyDep = depBase / totalMonths;
+      const accumulated = Math.min(Math.round(monthlyDep * monthsElapsed), depBase);
+      const currentVal = Math.max(fa.amount - accumulated, residualValue);
+      const depPct = depBase > 0 ? Math.min(accumulated / depBase * 100, 100) : 0;
       const yearsElapsed = (monthsElapsed/12);
 
       depHTML = `
@@ -1331,8 +1346,12 @@ function renderFixedAssetsWithDepreciation() {
               <span style="font-weight:700;color:var(--red)">−${fmtFull(accumulated)}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
-              <span style="font-size:11px;color:var(--sub)">현재 장부가</span>
+              <span style="font-size:11px;color:var(--sub)">현재 추정가치</span>
               <span style="font-weight:800;color:var(--green);font-size:15px">${fmtFull(currentVal)}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">잔존가치(${residualRate}%)</span>
+              <span style="font-weight:600">${fmtFull(residualValue)}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <span style="font-size:11px;color:var(--sub)">경과</span>
@@ -1347,7 +1366,7 @@ function renderFixedAssetsWithDepreciation() {
             <div style="width:${depPct}%;height:100%;background:linear-gradient(90deg,var(--green),${depPct>70?'var(--red)':'var(--orange)'});border-radius:3px"></div>
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--sub)">
-            <span>정액법 · 내용연수 ${years}년</span>
+            <span>정액법 · ${years}년 · 잔가율 ${residualRate}%</span>
             <span>상각률 ${depPct.toFixed(1)}%${depPct>=100?' ✓ 완전상각':''}</span>
           </div>
         </div>`;
@@ -1357,7 +1376,7 @@ function renderFixedAssetsWithDepreciation() {
       <div class="form-row" style="margin-bottom:4px;align-items:flex-end">
         <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:100px">
           <span style="font-size:10px;color:var(--sub)">자산명</span>
-          <input class="form-input" value="${fa.name||''}" placeholder="캐스퍼 EV3" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value)">
+          <input class="form-input" value="${fa.name||''}" placeholder="캐스퍼 EV3" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value);this.closest('[data-id]')||renderAssets()">
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;width:150px">
           <span style="font-size:10px;color:var(--sub)">취득가</span>
@@ -1369,9 +1388,13 @@ function renderFixedAssetsWithDepreciation() {
           <span style="font-size:10px;color:var(--sub)">취득일</span>
           <input type="date" class="form-input" value="${fa.purchaseDate||''}" onchange="updateAsset('fixedAssets','${fa.id}','purchaseDate',this.value)">
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:65px">
-          <span style="font-size:10px;color:var(--sub)">내용연수</span>
-          <input type="number" class="form-input" style="text-align:center" value="${fa.depYears||5}" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
+        <div style="display:flex;flex-direction:column;gap:2px;width:55px">
+          <span style="font-size:10px;color:var(--sub)">연수</span>
+          <input type="number" class="form-input" style="text-align:center" value="${fa.depYears}" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;width:55px">
+          <span style="font-size:10px;color:var(--sub)">잔가%</span>
+          <input type="number" class="form-input" style="text-align:center" value="${fa.residualRate??10}" onchange="updateAsset('fixedAssets','${fa.id}','residualRate',Number(this.value))">
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex:0.7;min-width:70px">
           <span style="font-size:10px;color:var(--sub)">비고</span>
