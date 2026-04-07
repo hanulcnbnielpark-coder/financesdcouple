@@ -441,15 +441,7 @@ body {
         <button class="btn-add" style="background:var(--cyan)" onclick="addInvestment()">+ 종목 추가</button>
       </div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <div style="min-width:780px">
-          <div style="font-size:12px;color:var(--sub);margin-bottom:8px;display:flex;gap:6px;padding:0 4px;align-items:center">
-            <span style="flex:1.2">종목명</span><span style="width:70px">코드</span><span style="width:70px">증권사</span>
-            <span style="width:50px;text-align:right">수량</span><span style="width:100px;text-align:right">매수평단가</span>
-            <span style="width:100px;text-align:right">현재가</span><span style="width:110px;text-align:right">평가손익</span>
-            <span style="width:60px;text-align:right">수익률</span><span style="width:28px"></span>
-          </div>
-          <div id="investmentsList"></div>
-        </div>
+        <div id="investmentsList" style="min-width:700px"></div>
       </div>
       <div id="investmentTotal" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;font-size:15px;font-weight:700;flex-wrap:wrap"></div>
     </div>
@@ -1206,44 +1198,66 @@ function renderAssets() {
 function renderInvestments() {
   const list = state.investments || [];
   const fmtAmt = (v) => v ? v.toLocaleString() : '';
+  const curRate = state.exchangeRate || 1400;
   
   document.getElementById('investmentsList').innerHTML = list.length ? list.map(inv => {
+    const isUS = inv.market === '미국';
     const cp = inv.currentPrice || 0;
-    const valuation = inv.market === '미국' ? (cp * (inv.qty||0) * (state.exchangeRate||1400)) : (cp * (inv.qty||0));
-    const pnl = valuation - (inv.amount||0);
-    const pnlRate = inv.amount > 0 ? (pnl / inv.amount * 100) : 0;
+    const buyExRate = inv.buyExRate || curRate;
+    // 투자원금: 외국주식은 수량*매수가*매수환율
+    const invested = isUS ? (inv.qty||0) * (inv.avgPrice||0) * buyExRate : (inv.amount || (inv.qty||0) * (inv.avgPrice||0));
+    // 현재 평가: 외국주식은 수량*현재가*현재환율
+    const valuation = isUS ? (cp * (inv.qty||0) * curRate) : (cp * (inv.qty||0));
+    const pnl = cp ? valuation - invested : 0;
+    const pnlRate = invested > 0 && cp ? (pnl / invested * 100) : 0;
     const pnlColor = pnl > 0 ? 'var(--red)' : pnl < 0 ? 'var(--blue)' : 'var(--sub)';
     const pnlSign = pnl > 0 ? '+' : '';
 
-    return `<div class="form-row" data-id="${inv.id}" style="flex-wrap:nowrap;align-items:center">
-      <input class="form-input" style="flex:1.2;min-width:90px" value="${inv.name||''}" placeholder="종목명" onchange="updateAsset('investments','${inv.id}','name',this.value)">
-      <input class="form-input" style="width:70px;font-size:12px;color:var(--sub)" value="${inv.code||''}" placeholder="코드" onchange="updateAsset('investments','${inv.id}','code',this.value)">
-      <input class="form-input" style="width:70px;font-size:12px" value="${inv.broker||''}" placeholder="증권사" onchange="updateAsset('investments','${inv.id}','broker',this.value)">
-      <input class="form-input" style="width:50px;text-align:right" value="${inv.qty||''}" placeholder="수량"
-        onchange="updateAsset('investments','${inv.id}','qty',Number(this.value))">
-      <input class="form-input" style="width:100px;text-align:right" value="${fmtAmt(inv.avgPrice)}" placeholder="매수평단가"
-        oninput="this.value=this.value.replace(/[^0-9.]/g,'')"
-        onchange="updateAsset('investments','${inv.id}','avgPrice',Number(this.value.replace(/,/g,'')))">
-      <div style="width:100px;text-align:right;font-size:13px;color:${cp?'var(--text)':'var(--muted)'};font-variant-numeric:tabular-nums">
-        ${cp ? fmtAmt(Math.round(cp)) : '-'}
+    // Currency display for US stocks
+    const priceLabel = isUS ? `$${inv.avgPrice||0}` : fmtAmt(inv.avgPrice);
+    const curPriceLabel = isUS && cp ? `$${cp.toFixed(2)}` : (cp ? fmtAmt(Math.round(cp)) : '-');
+
+    return `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div class="form-row" style="flex-wrap:nowrap;align-items:center;margin-bottom:4px">
+        <input class="form-input" style="flex:1.2;min-width:90px" value="${inv.name||''}" placeholder="종목명" onchange="updateAsset('investments','${inv.id}','name',this.value)">
+        <input class="form-input" style="width:65px;font-size:12px;color:var(--sub)" value="${inv.code||''}" placeholder="코드" onchange="updateAsset('investments','${inv.id}','code',this.value)">
+        <input class="form-input" style="width:65px;font-size:12px" value="${inv.broker||''}" placeholder="증권사" onchange="updateAsset('investments','${inv.id}','broker',this.value)">
+        <select class="form-select" style="width:55px;font-size:12px" onchange="updateAsset('investments','${inv.id}','market',this.value)">
+          <option value="-" ${inv.market==='-'?'selected':''}>-</option>
+          <option value="국내" ${inv.market==='국내'?'selected':''}>국내</option>
+          <option value="미국" ${inv.market==='미국'?'selected':''}>미국</option>
+        </select>
+        <input class="form-input" style="width:45px;text-align:right" value="${inv.qty||''}" placeholder="수량"
+          onchange="updateAsset('investments','${inv.id}','qty',Number(this.value))">
+        <input class="form-input" style="width:90px;text-align:right" value="${inv.avgPrice||''}" placeholder="${isUS?'$단가':'매수가'}"
+          oninput="this.value=this.value.replace(/[^0-9.]/g,'')"
+          onchange="updateAsset('investments','${inv.id}','avgPrice',Number(this.value))">
+        ${isUS ? `<input class="form-input" style="width:70px;text-align:right;font-size:12px" value="${inv.buyExRate||''}" placeholder="매수환율"
+          onchange="updateAsset('investments','${inv.id}','buyExRate',Number(this.value))">` : ''}
+        <input type="date" class="form-input" style="width:120px;font-size:11px" value="${normalizeDate(inv.buyDate)||''}" title="매수일"
+          onchange="updateAsset('investments','${inv.id}','buyDate',this.value)">
+        <button class="btn-del" onclick="removeAsset('investments','${inv.id}')">✕</button>
       </div>
-      <div style="width:110px;text-align:right;font-size:13px;font-weight:600;color:${pnlColor};font-variant-numeric:tabular-nums">
-        ${cp ? pnlSign + fmtAmt(Math.round(pnl)) : '-'}
-      </div>
-      <div style="width:60px;text-align:right;font-size:12px;font-weight:700;color:${pnlColor}">
-        ${cp ? pnlSign + pnlRate.toFixed(1) + '%' : '-'}
-      </div>
-      <button class="btn-del" onclick="removeAsset('investments','${inv.id}')">✕</button>
+      ${cp || invested ? `<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;padding:4px 2px;color:var(--sub)">
+        <span>투자원금 <b style="color:var(--text)">${fmtFull(Math.round(invested))}</b>${isUS?' (환율'+buyExRate+')':''}</span>
+        <span>현재가 <b style="color:${cp?'var(--text)':'var(--muted)'}">${curPriceLabel}</b>${isUS&&cp?' (환율'+curRate+')':''}</span>
+        <span>평가금액 <b style="color:var(--text)">${cp?fmtFull(Math.round(valuation)):'-'}</b></span>
+        <span>손익 <b style="color:${pnlColor}">${cp?pnlSign+fmtFull(Math.round(pnl)):'-'} (${cp?pnlSign+pnlRate.toFixed(1)+'%':'-'})</b></span>
+        ${inv.buyDate?`<span>매수일 ${fmtDate(inv.buyDate)}</span>`:''}
+      </div>` : ''}
     </div>`;
   }).join('') : '<div style="color:var(--sub);text-align:center;padding:16px;font-size:14px">종목을 추가하세요</div>';
 
   // Totals
   let totalInvested = 0, totalValuation = 0;
   list.forEach(inv => {
+    const isUS = inv.market === '미국';
     const cp = inv.currentPrice || 0;
-    const val = inv.market === '미국' ? (cp * (inv.qty||0) * (state.exchangeRate||1400)) : (cp * (inv.qty||0));
-    totalInvested += (inv.amount||0);
-    totalValuation += cp ? val : (inv.amount||0);
+    const buyExRate = inv.buyExRate || curRate;
+    const invested = isUS ? (inv.qty||0)*(inv.avgPrice||0)*buyExRate : (inv.amount||(inv.qty||0)*(inv.avgPrice||0));
+    const val = isUS ? (cp*(inv.qty||0)*curRate) : (cp*(inv.qty||0));
+    totalInvested += invested;
+    totalValuation += cp ? val : invested;
   });
   const totalPnl = totalValuation - totalInvested;
   const totalRate = totalInvested > 0 ? (totalPnl / totalInvested * 100) : 0;
@@ -1251,14 +1265,14 @@ function renderInvestments() {
   const ts = totalPnl > 0 ? '+' : '';
 
   document.getElementById('investmentTotal').innerHTML = `
-    <span style="color:var(--sub)">투자원금 <b>${fmtFull(totalInvested)}</b></span>
+    <span style="color:var(--sub)">투자원금 <b>${fmtFull(Math.round(totalInvested))}</b></span>
     <span style="color:var(--sub)">평가금액 <b style="color:var(--text)">${fmtFull(Math.round(totalValuation))}</b></span>
     <span style="color:${tc};font-weight:800">${ts}${fmtFull(Math.round(totalPnl))} (${ts}${totalRate.toFixed(1)}%)</span>
   `;
 }
 
 function addInvestment() {
-  state.investments.push({ id:uid(), name:'', code:'', broker:'', market:'국내', qty:0, avgPrice:0, amount:0, currentPrice:0, note:'' });
+  state.investments.push({ id:uid(), name:'', code:'', broker:'', market:'국내', qty:0, avgPrice:0, amount:0, currentPrice:0, buyDate:'', buyExRate:0, note:'' });
   saveState(); renderAssets();
 }
 
