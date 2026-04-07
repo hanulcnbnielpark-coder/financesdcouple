@@ -1830,7 +1830,7 @@ async function fetchPrices() {
     }));
     if (codes.length === 0) return;
 
-    const res = await fetch(state.gasUrl + '?action=prices&codes=' + encodeURIComponent(JSON.stringify(codes)));
+    const res = await fetch(state.gasUrl + '?action=prices&codes=' + encodeURIComponent(JSON.stringify(codes)) + '&t=' + Date.now(), { redirect: 'follow' });
     const result = await res.json();
     if (result.status === 'ok' && result.prices) {
       result.prices.forEach(p => {
@@ -1851,10 +1851,12 @@ async function fetchPrices() {
 }
 
 async function loadFromSheets() {
-  if (!state.gasUrl) return;
+  if (!state.gasUrl) return false;
   try {
-    const res = await fetch(state.gasUrl + '?action=read');
+    console.log('[쑥둥] Loading from:', state.gasUrl);
+    const res = await fetch(state.gasUrl + '?action=read&t=' + Date.now(), { redirect: 'follow' });
     const result = await res.json();
+    console.log('[쑥둥] Response status:', result.status, 'has daily:', !!result.data?.daily);
     if (result.status === 'ok' && result.data) {
       const d = result.data;
       if (d.daily) {
@@ -1898,11 +1900,13 @@ async function loadFromSheets() {
       }
       saveState();
       renderAll();
-      await fetchPrices();
+      // Fetch prices in background (don't block loading)
+      fetchPrices().catch(e => console.log('[쑥둥] Price fetch:', e));
       return true;
     }
   } catch(e) {
-    console.log('Load error:', e);
+    console.error('[쑥둥] Load error:', e.message, e);
+    throw e;
   }
   return false;
 }
@@ -1914,7 +1918,7 @@ async function testConnection() {
   }
   showSyncStatus('연결 테스트 중...', 'var(--blue)');
   try {
-    const res = await fetch(state.gasUrl + '?action=ping');
+    const res = await fetch(state.gasUrl + '?action=ping&t=' + Date.now(), { redirect: 'follow' });
     const result = await res.json();
     showSyncStatus(`✓ 연결 성공! (${result.message || 'OK'})`, 'var(--green)');
   } catch(e) {
@@ -1984,12 +1988,21 @@ renderAll();
 if (state.gasUrl) {
   const banner = document.getElementById('loadingBanner');
   banner.style.display = 'block';
-  loadFromSheets().then(() => {
-    banner.style.display = 'none';
-  }).catch(() => {
-    banner.textContent = '⚠ 시트 연결 실패 — 로컬 데이터 표시 중';
+  banner.textContent = '📡 시트에서 데이터 불러오는 중...';
+  loadFromSheets().then((ok) => {
+    if (ok) {
+      banner.textContent = '✓ 시트 데이터 로드 완료';
+      banner.style.background = 'var(--green)';
+      setTimeout(() => banner.style.display = 'none', 1500);
+    } else {
+      banner.textContent = '⚠ 시트에서 데이터를 가져오지 못했습니다 — 설정에서 GAS URL을 확인하세요';
+      banner.style.background = 'var(--red)';
+      setTimeout(() => banner.style.display = 'none', 5000);
+    }
+  }).catch((e) => {
+    banner.textContent = `✕ 시트 연결 실패: ${e.message || '네트워크 오류'} — GAS URL을 확인하세요`;
     banner.style.background = 'var(--red)';
-    setTimeout(() => banner.style.display = 'none', 3000);
+    setTimeout(() => banner.style.display = 'none', 5000);
   });
 }
 </script>
