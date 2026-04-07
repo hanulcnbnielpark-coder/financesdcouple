@@ -86,8 +86,7 @@ body {
 .tab-btn.active { border-bottom-color: var(--blue); color: var(--blue); font-weight: 700; }
 
 /* Content */
-.content { padding: 20px 24px; max-width: 1100px; margin: 0 auto; transition: max-width 0.2s; }
-.content.wide { max-width: 1600px; }
+.content { padding: 20px 24px; max-width: 1600px; margin: 0 auto; }
 .tab-page { display: none; }
 .tab-page.active { display: block; }
 
@@ -457,8 +456,8 @@ body {
     <div class="two-col">
       <div class="card">
         <div class="card-title" style="justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--purple)"></div>고정자산</div>
-          <button class="btn-add purple" onclick="addAssetRow('fixedAssets')">+ 추가</button>
+          <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--purple)"></div>고정자산 (감가상각)</div>
+          <button class="btn-add purple" onclick="addFixedAsset()">+ 추가</button>
         </div>
         <div id="fixedAssetsList"></div>
       </div>
@@ -671,10 +670,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('page-' + btn.dataset.tab).classList.add('active');
-    // Wide mode for fixed & assets tabs
-    const content = document.querySelector('.content');
-    const wideTabs = ['fixed','assets','pnl'];
-    content.classList.toggle('wide', wideTabs.includes(btn.dataset.tab));
     renderAll();
   });
 });
@@ -1085,24 +1080,40 @@ function renderFixed() {
 
   document.getElementById('fixedList').innerHTML = filtered.map(f => {
     const w = f.who || '';
-    return `<div class="form-row" data-id="${f.id}">
-      <div class="who-sel">
-        <button class="${w==='쑥'?'active-suk':''}" onclick="updateFixed('${f.id}','who','쑥')">쑥</button>
-        <button class="${w==='둥'?'active-dung':''}" onclick="updateFixed('${f.id}','who','둥')">둥</button>
-        <button class="${w==='공동'?'active-both':''}" onclick="updateFixed('${f.id}','who','공동')">공동</button>
+    const hasInstall = f.totalPay > 0;
+    const paidPct = hasInstall ? Math.min((f.paidPay||0)/f.totalPay*100, 100) : 0;
+    const remaining = hasInstall ? f.totalPay - (f.paidPay||0) : 0;
+
+    return `<div style="margin-bottom:${hasInstall?'2':'8'}px" data-id="${f.id}">
+      <div class="form-row" style="margin-bottom:0">
+        <div class="who-sel">
+          <button class="${w==='쑥'?'active-suk':''}" onclick="updateFixed('${f.id}','who','쑥')">쑥</button>
+          <button class="${w==='둥'?'active-dung':''}" onclick="updateFixed('${f.id}','who','둥')">둥</button>
+          <button class="${w==='공동'?'active-both':''}" onclick="updateFixed('${f.id}','who','공동')">공동</button>
+        </div>
+        <select class="form-select" style="min-width:75px" onchange="if(this.value==='__add__'){addCustomCat('fixed',this,v=>{updateFixed('${f.id}','cat',v);})}else{updateFixed('${f.id}','cat',this.value)}">
+          ${catOptionsHTML('fixed', f.cat)}
+        </select>
+        <input class="form-input" style="flex:1;min-width:80px" value="${f.desc}" placeholder="내용" onchange="updateFixed('${f.id}','desc',this.value)">
+        <input class="form-input" style="width:140px;text-align:right;font-weight:600" value="${f.amount ? f.amount.toLocaleString() : ''}" placeholder="금액"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
+          onchange="updateFixed('${f.id}','amount',Number(this.value.replace(/,/g,'')))">
+        <input type="number" class="form-input" style="width:60px;text-align:center" value="${f.day||''}" placeholder="일" title="결제일" onchange="updateFixed('${f.id}','day',Number(this.value))">
+        <select class="form-select" style="min-width:110px" onchange="updateFixed('${f.id}','method',this.value)">
+          ${PAYMENT_METHODS.map(p => `<option value="${p}" ${f.method===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+        <button class="btn-del" onclick="removeFixed('${f.id}')">✕</button>
       </div>
-      <select class="form-select" style="min-width:75px" onchange="if(this.value==='__add__'){addCustomCat('fixed',this,v=>{updateFixed('${f.id}','cat',v);})}else{updateFixed('${f.id}','cat',this.value)}">
-        ${catOptionsHTML('fixed', f.cat)}
-      </select>
-      <input class="form-input" style="flex:1;min-width:80px" value="${f.desc}" placeholder="내용" onchange="updateFixed('${f.id}','desc',this.value)">
-      <input class="form-input" style="width:140px;text-align:right;font-weight:600" value="${f.amount ? f.amount.toLocaleString() : ''}" placeholder="금액"
-        oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
-        onchange="updateFixed('${f.id}','amount',Number(this.value.replace(/,/g,'')))">
-      <input type="number" class="form-input" style="width:60px;text-align:center" value="${f.day||''}" placeholder="일" title="결제일" onchange="updateFixed('${f.id}','day',Number(this.value))">
-      <select class="form-select" style="min-width:110px" onchange="updateFixed('${f.id}','method',this.value)">
-        ${PAYMENT_METHODS.map(p => `<option value="${p}" ${f.method===p?'selected':''}>${p}</option>`).join('')}
-      </select>
-      <button class="btn-del" onclick="removeFixed('${f.id}')">✕</button>
+      <div style="display:flex;align-items:center;gap:6px;padding:2px 0 6px 0;margin-left:2px">
+        <span style="font-size:11px;color:var(--sub);cursor:pointer;white-space:nowrap" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none'">${hasInstall ? `📊 ${f.paidPay||0}/${f.totalPay}회 (${paidPct.toFixed(0)}%) · 잔여 ${remaining}회` : '📊 회차'}</span>
+        <div style="display:${hasInstall?'flex':'none'};align-items:center;gap:4px;flex:1">
+          <input type="number" class="form-input" style="width:55px;text-align:center;font-size:11px;padding:3px" value="${f.paidPay||''}" placeholder="납부" onchange="updateFixed('${f.id}','paidPay',Number(this.value))">
+          <span style="font-size:11px;color:var(--sub)">/</span>
+          <input type="number" class="form-input" style="width:55px;text-align:center;font-size:11px;padding:3px" value="${f.totalPay||''}" placeholder="총회수" onchange="updateFixed('${f.id}','totalPay',Number(this.value))">
+          <span style="font-size:11px;color:var(--sub)">회</span>
+          ${hasInstall ? `<div style="flex:1;max-width:120px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${paidPct}%;height:100%;background:${paidPct>=100?'var(--green)':'var(--blue)'};border-radius:2px"></div></div>` : ''}
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1134,7 +1145,7 @@ function renderAssets() {
 
   renderAssetList('savings', 'savingsList', ['name','amount','where'], ['이름','금액','위치']);
   renderInvestments();
-  renderAssetList('fixedAssets', 'fixedAssetsList', ['name','amount','note'], ['이름','금액','비고']);
+  renderFixedAssetsWithDepreciation();
   renderAssetList('liabilities', 'liabilitiesList', ['name','amount','note'], ['이름','금액','비고']);
 
   // Portfolio Chart
@@ -1248,6 +1259,59 @@ function updateAsset(key, id, field, value) {
 function removeAsset(key, id) {
   state[key] = state[key].filter(a => a.id !== id);
   saveState(); renderAssets(); renderDashboard();
+}
+
+function addFixedAsset() {
+  state.fixedAssets.push({ id:uid(), name:'', amount:0, purchaseDate:'', depYears:5, note:'' });
+  saveState(); renderAssets();
+}
+
+function renderFixedAssetsWithDepreciation() {
+  const list = state.fixedAssets || [];
+  const fmtA = v => v ? v.toLocaleString() : '';
+  const now = new Date();
+
+  document.getElementById('fixedAssetsList').innerHTML = list.length ? list.map(fa => {
+    // Depreciation calculation (정액법)
+    let depInfo = '';
+    if (fa.purchaseDate && fa.amount && fa.depYears > 0) {
+      const pDate = new Date(fa.purchaseDate);
+      const monthsElapsed = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
+      const totalMonths = fa.depYears * 12;
+      const monthlyDep = fa.amount / totalMonths;
+      const accumulated = Math.min(monthlyDep * monthsElapsed, fa.amount);
+      const currentVal = Math.max(fa.amount - accumulated, 0);
+      const depPct = Math.min(monthsElapsed / totalMonths * 100, 100);
+
+      depInfo = `
+        <div style="margin-top:6px;padding:8px 12px;background:var(--card2);border-radius:8px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+            <span>취득가 <b>${fmtFull(fa.amount)}</b></span>
+            <span>감가누계 <b style="color:var(--red)">${fmtFull(Math.round(accumulated))}</b></span>
+            <span>현재가치 <b style="color:var(--green)">${fmtFull(Math.round(currentVal))}</b></span>
+            <span>경과 <b>${(monthsElapsed/12).toFixed(1)}년</b> / ${fa.depYears}년</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="width:${depPct}%;height:100%;background:linear-gradient(90deg,var(--green),${depPct>70?'var(--red)':'var(--orange)'});border-radius:3px;transition:width 0.4s"></div>
+          </div>
+          <div style="text-align:right;margin-top:3px;font-size:11px;color:var(--sub)">감가상각률 ${depPct.toFixed(1)}% (정액법)</div>
+        </div>`;
+    }
+
+    return `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div class="form-row" style="margin-bottom:4px">
+        <input class="form-input" style="flex:1;min-width:100px" value="${fa.name||''}" placeholder="자산명" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value)">
+        <input class="form-input" style="width:150px;text-align:right;font-weight:600" value="${fmtA(fa.amount)}" placeholder="취득가"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
+          onchange="updateAsset('fixedAssets','${fa.id}','amount',Number(this.value.replace(/,/g,'')))">
+        <input type="date" class="form-input" style="width:140px" value="${fa.purchaseDate||''}" title="취득일" onchange="updateAsset('fixedAssets','${fa.id}','purchaseDate',this.value)">
+        <input type="number" class="form-input" style="width:60px;text-align:center" value="${fa.depYears||''}" placeholder="연수" title="내용연수(년)" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
+        <input class="form-input" style="flex:0.7;min-width:70px" value="${fa.note||''}" placeholder="비고" onchange="updateAsset('fixedAssets','${fa.id}','note',this.value)">
+        <button class="btn-del" onclick="removeAsset('fixedAssets','${fa.id}')">✕</button>
+      </div>
+      ${depInfo}
+    </div>`;
+  }).join('') : '<div style="color:var(--sub);text-align:center;padding:12px;font-size:13px">고정자산을 추가하세요</div>';
 }
 
 // ==================== RENDER: BALANCE SHEET ====================
