@@ -453,21 +453,19 @@ body {
       </div>
       <div id="investmentTotal" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;font-size:15px;font-weight:700;flex-wrap:wrap"></div>
     </div>
-    <div class="two-col">
-      <div class="card">
-        <div class="card-title" style="justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--purple)"></div>고정자산 (감가상각)</div>
-          <button class="btn-add purple" onclick="addFixedAsset()">+ 추가</button>
-        </div>
-        <div id="fixedAssetsList"></div>
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--purple)"></div>고정자산 (감가상각)</div>
+        <button class="btn-add purple" onclick="addFixedAsset()">+ 추가</button>
       </div>
-      <div class="card">
-        <div class="card-title" style="justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--red)"></div>부채 (대출 관리)</div>
-          <button class="btn-add red" onclick="addLiability()">+ 추가</button>
-        </div>
-        <div id="liabilitiesList"></div>
+      <div id="fixedAssetsList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--red)"></div>부채 (대출 관리)</div>
+        <button class="btn-add red" onclick="addLiability()">+ 추가</button>
       </div>
+      <div id="liabilitiesList"></div>
     </div>
     <div class="card">
       <div class="card-title">자산 포트폴리오</div>
@@ -1411,9 +1409,48 @@ function renderFixedAssetsWithDepreciation() {
 function addLiability() {
   state.liabilities.push({
     id: uid(), name: '', amount: 0, interestRate: 0,
-    startDate: '', loanYears: 30, repayType: '원리금균등', note: ''
+    startDate: '', loanYears: 30, repayType: '원리금균등', growthRate: 2, note: ''
   });
   saveState(); renderAssets();
+}
+
+function calcLoan(P, annualRate, years, type, growthRate, monthsPaid) {
+  const r = annualRate / 100 / 12;
+  const n = years * 12;
+  const k = Math.min(monthsPaid, n);
+  const g = (growthRate || 2) / 100;
+  let monthlyNow = 0, remaining = P, totalInterest = 0, firstPay = 0;
+
+  if (type === '원리금균등' && r > 0) {
+    const M = P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+    monthlyNow = M; firstPay = M;
+    remaining = k >= n ? 0 : P * (Math.pow(1+r,n)-Math.pow(1+r,k)) / (Math.pow(1+r,n)-1);
+    totalInterest = M * n - P;
+  } else if (type === '원금균등' && r > 0) {
+    const mp = P / n;
+    firstPay = mp + P * r;
+    monthlyNow = mp + Math.max(P - mp*k, 0) * r;
+    remaining = Math.max(P - mp*k, 0);
+    for (let i=0;i<n;i++) totalInterest += (P-mp*i)*r;
+  } else if (type === '체증식' && r > 0) {
+    // 체증식: 매년 g%씩 상환액 증가
+    let pvSum = 0;
+    for (let i=0;i<n;i++) pvSum += Math.pow(1+g,Math.floor(i/12)) / Math.pow(1+r,i+1);
+    firstPay = P / pvSum;
+    // Iterate to find remaining balance and current payment
+    let bal = P;
+    for (let i=0;i<n;i++) {
+      const pmt = firstPay * Math.pow(1+g, Math.floor(i/12));
+      const interest = bal * r;
+      totalInterest += interest;
+      bal = bal + interest - pmt;
+      if (i === k-1) remaining = Math.max(bal, 0);
+      if (i === k) monthlyNow = pmt;
+    }
+    if (k === 0) { monthlyNow = firstPay; remaining = P; }
+    if (k >= n) remaining = 0;
+  }
+  return { monthlyNow: Math.round(monthlyNow), firstPay: Math.round(firstPay), remaining: Math.max(Math.round(remaining),0), totalInterest: Math.round(totalInterest), n, k };
 }
 
 function renderLiabilities() {
@@ -1425,63 +1462,47 @@ function renderLiabilities() {
     const rate = li.interestRate || 0;
     const years = li.loanYears || 30;
     const hasLoan = li.amount > 0 && rate > 0 && li.startDate;
+    const isGrad = li.repayType === '체증식';
 
     let loanHTML = '';
     if (hasLoan) {
       const P = li.amount;
-      const r = rate / 100 / 12;
-      const n = years * 12;
       const start = new Date(li.startDate);
       const monthsPaid = Math.max(0, (now.getFullYear()-start.getFullYear())*12 + (now.getMonth()-start.getMonth()));
-      const k = Math.min(monthsPaid, n);
-
-      let monthlyPay = 0, totalPaid = 0, totalInterest = 0, remaining = P;
-
-      if (li.repayType === '원리금균등' && r > 0) {
-        monthlyPay = P * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1);
-        remaining = k >= n ? 0 : P * (Math.pow(1+r, n) - Math.pow(1+r, k)) / (Math.pow(1+r, n) - 1);
-        totalPaid = monthlyPay * k;
-        totalInterest = monthlyPay * n - P;
-      } else if (li.repayType === '원금균등' && r > 0) {
-        const monthlyPrincipal = P / n;
-        monthlyPay = monthlyPrincipal + (P - monthlyPrincipal * k) * r;
-        remaining = Math.max(P - monthlyPrincipal * k, 0);
-        for (let i = 0; i < n; i++) totalInterest += (P - monthlyPrincipal * i) * r;
-        totalPaid = P / n * k + totalInterest * (k/n);
-      } else {
-        monthlyPay = P * r + P / n;
-        remaining = Math.max(P - (P/n)*k, 0);
-        totalInterest = P * r * n;
-      }
-
-      const repaidPct = P > 0 ? ((P - remaining) / P * 100) : 0;
-      const endDate = new Date(start); endDate.setMonth(endDate.getMonth() + n);
+      const loan = calcLoan(P, rate, years, li.repayType, li.growthRate, monthsPaid);
+      const repaidPct = P > 0 ? ((P - loan.remaining) / P * 100) : 0;
+      const endDate = new Date(start); endDate.setMonth(endDate.getMonth() + loan.n);
       const endStr = `${endDate.getFullYear()}.${String(endDate.getMonth()+1).padStart(2,'0')}`;
-      const remainMonths = Math.max(n - k, 0);
-      const remainYears = (remainMonths / 12).toFixed(1);
+      const remainYears = (Math.max(loan.n - loan.k, 0) / 12).toFixed(1);
+      const lastPay = isGrad ? Math.round(loan.firstPay * Math.pow(1+(li.growthRate||2)/100, years-1)) : 0;
 
       loanHTML = `
-        <div style="margin-top:6px;padding:10px 14px;background:var(--card2);border-radius:10px;font-size:13px">
-          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="margin-top:6px;padding:12px 16px;background:var(--card2);border-radius:10px;font-size:13px">
+          <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px">
             <div style="display:flex;flex-direction:column;gap:2px">
               <span style="font-size:11px;color:var(--sub)">대출원금</span>
               <span style="font-weight:700">${fmtFull(P)}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <span style="font-size:11px;color:var(--sub)">상환완료</span>
-              <span style="font-weight:700;color:var(--green)">${fmtFull(Math.round(P - remaining))}</span>
+              <span style="font-weight:700;color:var(--green)">${fmtFull(P - loan.remaining)}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <span style="font-size:11px;color:var(--sub)">잔여원금</span>
-              <span style="font-weight:800;color:var(--red);font-size:15px">${fmtFull(Math.round(remaining))}</span>
+              <span style="font-weight:800;color:var(--red);font-size:15px">${fmtFull(loan.remaining)}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
-              <span style="font-size:11px;color:var(--sub)">월 상환액</span>
-              <span style="font-weight:700">${fmtFull(Math.round(monthlyPay))}</span>
+              <span style="font-size:11px;color:var(--sub)">${isGrad ? '현재 월 상환액' : '월 상환액'}</span>
+              <span style="font-weight:700">${fmtFull(loan.monthlyNow)}</span>
             </div>
+            ${isGrad ? `
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">초기 → 최종</span>
+              <span style="font-weight:600;font-size:12px">${fmtFull(loan.firstPay)} → ${fmtFull(lastPay)}</span>
+            </div>` : ''}
             <div style="display:flex;flex-direction:column;gap:2px">
               <span style="font-size:11px;color:var(--sub)">총 이자비용</span>
-              <span style="font-weight:700;color:var(--orange)">${fmt(Math.round(totalInterest))}</span>
+              <span style="font-weight:700;color:var(--orange)">${fmt(loan.totalInterest)}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <span style="font-size:11px;color:var(--sub)">완납 예정</span>
@@ -1495,47 +1516,54 @@ function renderLiabilities() {
             <span style="font-size:12px;font-weight:700;color:var(--green);min-width:45px">${repaidPct.toFixed(1)}%</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub)">
-            <span>${li.repayType} · 이자율 ${rate}% · ${years}년</span>
-            <span>${k}/${n}회 납부</span>
+            <span>${li.repayType}${isGrad?' (연 '+(li.growthRate||2)+'% 증가)':''} · 이자율 ${rate}% · ${years}년</span>
+            <span>${loan.k}/${loan.n}회 납부</span>
           </div>
         </div>`;
     }
 
     return `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-      <div class="form-row" style="margin-bottom:4px;align-items:flex-end">
-        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:100px">
-          <span style="font-size:10px;color:var(--sub)">대출명</span>
-          <input class="form-input" value="${li.name||''}" placeholder="아낌e보금자리론" onchange="updateAsset('liabilities','${li.id}','name',this.value)">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div class="form-row" style="margin-bottom:4px;align-items:flex-end;min-width:700px">
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:110px">
+            <span style="font-size:10px;color:var(--sub)">대출명</span>
+            <input class="form-input" value="${li.name||''}" placeholder="아낌e보금자리론" onchange="updateAsset('liabilities','${li.id}','name',this.value)">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:150px">
+            <span style="font-size:10px;color:var(--sub)">대출원금</span>
+            <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(li.amount)}" placeholder="380,000,000"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
+              onchange="updateAsset('liabilities','${li.id}','amount',Number(this.value.replace(/,/g,'')))">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:60px">
+            <span style="font-size:10px;color:var(--sub)">이자율%</span>
+            <input type="number" step="0.1" class="form-input" style="text-align:center" value="${li.interestRate||''}" placeholder="3.5"
+              onchange="updateAsset('liabilities','${li.id}','interestRate',Number(this.value))">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:130px">
+            <span style="font-size:10px;color:var(--sub)">시작일</span>
+            <input type="date" class="form-input" value="${normalizeDate(li.startDate)||''}" onchange="updateAsset('liabilities','${li.id}','startDate',this.value)">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:50px">
+            <span style="font-size:10px;color:var(--sub)">기간(년)</span>
+            <input type="number" class="form-input" style="text-align:center" value="${li.loanYears||''}" placeholder="40"
+              onchange="updateAsset('liabilities','${li.id}','loanYears',Number(this.value))">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:95px">
+            <span style="font-size:10px;color:var(--sub)">상환방식</span>
+            <select class="form-select" onchange="updateAsset('liabilities','${li.id}','repayType',this.value)">
+              <option value="원리금균등" ${li.repayType==='원리금균등'?'selected':''}>원리금균등</option>
+              <option value="원금균등" ${li.repayType==='원금균등'?'selected':''}>원금균등</option>
+              <option value="체증식" ${li.repayType==='체증식'?'selected':''}>체증식</option>
+            </select>
+          </div>
+          ${isGrad ? `<div style="display:flex;flex-direction:column;gap:2px;width:55px">
+            <span style="font-size:10px;color:var(--sub)">체증률%</span>
+            <input type="number" step="0.5" class="form-input" style="text-align:center" value="${li.growthRate||2}" 
+              onchange="updateAsset('liabilities','${li.id}','growthRate',Number(this.value))">
+          </div>` : ''}
+          <button class="btn-del" onclick="removeAsset('liabilities','${li.id}')">✕</button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:140px">
-          <span style="font-size:10px;color:var(--sub)">대출원금</span>
-          <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(li.amount)}" placeholder="380,000,000"
-            oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
-            onchange="updateAsset('liabilities','${li.id}','amount',Number(this.value.replace(/,/g,'')))">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:65px">
-          <span style="font-size:10px;color:var(--sub)">이자율%</span>
-          <input type="number" step="0.1" class="form-input" style="text-align:center" value="${li.interestRate||''}" placeholder="3.5"
-            onchange="updateAsset('liabilities','${li.id}','interestRate',Number(this.value))">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:120px">
-          <span style="font-size:10px;color:var(--sub)">시작일</span>
-          <input type="date" class="form-input" value="${normalizeDate(li.startDate)||''}" onchange="updateAsset('liabilities','${li.id}','startDate',this.value)">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:50px">
-          <span style="font-size:10px;color:var(--sub)">기간</span>
-          <input type="number" class="form-input" style="text-align:center" value="${li.loanYears||''}" placeholder="40"
-            onchange="updateAsset('liabilities','${li.id}','loanYears',Number(this.value))">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:100px">
-          <span style="font-size:10px;color:var(--sub)">상환방식</span>
-          <select class="form-select" onchange="updateAsset('liabilities','${li.id}','repayType',this.value)">
-            <option value="원리금균등" ${li.repayType==='원리금균등'?'selected':''}>원리금균등</option>
-            <option value="원금균등" ${li.repayType==='원금균등'?'selected':''}>원금균등</option>
-            <option value="체증식" ${li.repayType==='체증식'?'selected':''}>체증식</option>
-          </select>
-        </div>
-        <button class="btn-del" onclick="removeAsset('liabilities','${li.id}')">✕</button>
       </div>
       ${loanHTML}
     </div>`;
