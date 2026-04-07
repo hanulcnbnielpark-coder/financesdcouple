@@ -451,76 +451,11 @@ function loadState() {
       if (!state.daily[m]) state.daily[m] = { income: [], expenses: [] };
     }
     // Load sample data if empty
-    if (state.fixed.length === 0) loadSampleData();
   } catch(e) { console.error('Load error:', e); }
 }
 
 function saveState() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e) {}
-}
-
-function loadSampleData() {
-  state.fixed = [
-    { id:uid(), cat:'관리비', desc:'관리비+난방', amount:400000, day:25, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'용돈', desc:'동 용돈', amount:150000, day:25, method:'현금', account:'개인비통장' },
-    { id:uid(), cat:'교통비', desc:'대중교통', amount:80000, day:25, method:'현금', account:'개인비통장' },
-    { id:uid(), cat:'통신비', desc:'통신비', amount:48000, day:15, method:'롯데카드(구독)', account:'고정비통장' },
-    { id:uid(), cat:'통신비', desc:'SKB', amount:36300, day:25, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'식비', desc:'동충식비', amount:200000, day:25, method:'현금', account:'개인비통장' },
-    { id:uid(), cat:'상조비', desc:'상조비', amount:29900, day:10, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'구독', desc:'넷플릭스', amount:21000, day:27, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'보험', desc:'실비보험', amount:13536, day:4, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'구독', desc:'쿠팡', amount:7890, day:25, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'대출이자', desc:'주택담보대출', amount:1100000, day:25, method:'현금', account:'생활비통장' },
-    { id:uid(), cat:'렌탈', desc:'LG 정수기', amount:45900, day:10, method:'롯데카드(구독)', account:'고정비통장' },
-    { id:uid(), cat:'보험', desc:'개인보험', amount:100000, day:25, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'보험', desc:'삼성케어플러스', amount:10620, day:8, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'저축', desc:'주택청약', amount:20000, day:25, method:'현금', account:'고정비통장' },
-    { id:uid(), cat:'보험', desc:'자동차 보험', amount:65000, day:10, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'보험', desc:'개인 보험', amount:96180, day:10, method:'현금', account:'고정비통장' },
-    { id:uid(), cat:'용돈', desc:'쏙 용돈', amount:150000, day:25, method:'현금', account:'개인비통장' },
-    { id:uid(), cat:'통신비', desc:'통신비', amount:48000, day:10, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'보험', desc:'아버님 실비', amount:71224, day:10, method:'롯데카드(365)', account:'고정비통장' },
-    { id:uid(), cat:'기타', desc:'자동차정비비', amount:80000, day:25, method:'현금', account:'개인비통장' },
-    { id:uid(), cat:'보험', desc:'운전자 보험', amount:2500, day:10, method:'롯데카드(365)', account:'고정비통장' },
-  ];
-  state.savings = [
-    { id:uid(), name:'쑥둥비상금', amount:8000000, where:'토스뱅크' },
-    { id:uid(), name:'쑥둥의료비', amount:1600000, where:'토스뱅크' },
-    { id:uid(), name:'쑥둥여행비', amount:1000000, where:'토스뱅크' },
-    { id:uid(), name:'쑥둥결혼비①', amount:9000000, where:'나무증권' },
-    { id:uid(), name:'쑥둥결혼비②', amount:10000000, where:'아빠카드' },
-  ];
-  state.investments = [
-    { id:uid(), name:'VOO S&P500', code:'VOO', broker:'토스증권', market:'미국', qty:12, avgPrice:630.69, amount:11419399, currentPrice:0, note:'S&P500' },
-    { id:uid(), name:'ACE 미국나스닥100', code:'367380', broker:'신한은행', market:'국내', qty:53, avgPrice:20195, amount:1070335, currentPrice:0, note:'기술주ETF, 퇴직연금' },
-    { id:uid(), name:'ACE 미국S&P500', code:'360200', broker:'신한은행', market:'국내', qty:56, avgPrice:19115, amount:1070440, currentPrice:0, note:'S&P500, 퇴직연금' },
-    { id:uid(), name:'TIGER 미국나스닥100', code:'133690', broker:'신한은행', market:'국내', qty:77, avgPrice:12531, amount:964887, currentPrice:0, note:'혼합형ETF, 퇴직연금' },
-    { id:uid(), name:'RISE 삼성그룹Top3', code:'448630', broker:'신한은행', market:'국내', qty:92, avgPrice:12682, amount:1166744, currentPrice:0, note:'혼합형ETF, 퇴직연금' },
-    { id:uid(), name:'TIGER 미국필라델피아', code:'381180', broker:'신한은행', market:'국내', qty:36, avgPrice:30626, amount:1102536, currentPrice:0, note:'반도체ETF, 퇴직연금' },
-    { id:uid(), name:'TIGER 미국나스닥100', code:'133690', broker:'나무증권', market:'국내', qty:12, avgPrice:163065, amount:1956780, currentPrice:0, note:'ISA종가형' },
-    { id:uid(), name:'케이뱅크', code:'', broker:'케이뱅크', market:'-', qty:1, avgPrice:10800000, amount:10800000, currentPrice:10800000, note:'예금' },
-  ];
-  state.fixedAssets = [
-    { id:uid(), name:'캐스퍼 일렉트릭', amount:52140000, note:'차량가격(보조금 차감 전)' },
-  ];
-  state.liabilities = [
-    { id:uid(), name:'주택담보대출', amount:0, note:'잔액' },
-  ];
-  // Sample daily for month 1~4
-  for (let m = 1; m <= 4; m++) {
-    state.daily[m].income = [
-      { id:uid(), date:`2026-${String(m).padStart(2,'0')}-25`, cat:'급여', desc:'월급', source:'회사', amount:3800000 }
-    ];
-    state.daily[m].expenses = [
-      { id:uid(), date:`2026-${String(m).padStart(2,'0')}-03`, cat:'식비', desc:'마트 장보기', source:'이마트 역삼점', amount:85000 },
-      { id:uid(), date:`2026-${String(m).padStart(2,'0')}-07`, cat:'문화/여가', desc:'영화', source:'CGV 강남', amount:28000 },
-      { id:uid(), date:`2026-${String(m).padStart(2,'0')}-12`, cat:'쇼핑', desc:'생활용품', source:'다이소', amount:45000 },
-      { id:uid(), date:`2026-${String(m).padStart(2,'0')}-18`, cat:'식비', desc:'외식', source:'한솥도시락 역삼점', amount:62000 },
-      { id:uid(), date:`2026-${String(m).padStart(2,'0')}-22`, cat:'교통비', desc:'주유', source:'GS칼텍스', amount:70000 },
-    ];
-  }
-  saveState();
 }
 
 // ==================== UTILITIES ====================
