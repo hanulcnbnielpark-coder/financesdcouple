@@ -453,19 +453,21 @@ body {
       </div>
       <div id="investmentTotal" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;font-size:15px;font-weight:700;flex-wrap:wrap"></div>
     </div>
-    <div class="card">
-      <div class="card-title" style="justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--purple)"></div>고정자산 (감가상각)</div>
-        <button class="btn-add purple" onclick="addFixedAsset()">+ 추가</button>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--purple)"></div>고정자산 (감가상각)</div>
+          <button class="btn-add purple" onclick="addFixedAsset()">+ 추가</button>
+        </div>
+        <div id="fixedAssetsList"></div>
       </div>
-      <div id="fixedAssetsList"></div>
-    </div>
-    <div class="card">
-      <div class="card-title" style="justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--red)"></div>부채 (대출 관리)</div>
-        <button class="btn-add red" onclick="addLiability()">+ 추가</button>
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--red)"></div>부채 (대출 관리)</div>
+          <button class="btn-add red" onclick="addLiability()">+ 추가</button>
+        </div>
+        <div id="liabilitiesList"></div>
       </div>
-      <div id="liabilitiesList"></div>
     </div>
     <div class="card">
       <div class="card-title">자산 포트폴리오</div>
@@ -1371,34 +1373,36 @@ function renderFixedAssetsWithDepreciation() {
     }
 
     return `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-      <div class="form-row" style="margin-bottom:4px;align-items:flex-end">
-        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:100px">
-          <span style="font-size:10px;color:var(--sub)">자산명</span>
-          <input class="form-input" value="${fa.name||''}" placeholder="캐스퍼 EV3" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value);this.closest('[data-id]')||renderAssets()">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div class="form-row" style="margin-bottom:4px;align-items:flex-end;min-width:620px">
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:80px">
+            <span style="font-size:10px;color:var(--sub)">자산명</span>
+            <input class="form-input" value="${fa.name||''}" placeholder="EV3" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value)">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:120px">
+            <span style="font-size:10px;color:var(--sub)">취득가</span>
+            <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(fa.amount)}" placeholder="43,000,000"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
+              onchange="updateAsset('fixedAssets','${fa.id}','amount',Number(this.value.replace(/,/g,'')))">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:130px">
+            <span style="font-size:10px;color:var(--sub)">취득일</span>
+            <input type="date" class="form-input" value="${fa.purchaseDate||''}" onchange="updateAsset('fixedAssets','${fa.id}','purchaseDate',this.value)">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:65px">
+            <span style="font-size:10px;color:var(--sub)">연수</span>
+            <input type="number" class="form-input" style="text-align:center" value="${fa.depYears}" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:65px">
+            <span style="font-size:10px;color:var(--sub)">잔가%</span>
+            <input type="number" class="form-input" style="text-align:center" value="${fa.residualRate??10}" onchange="updateAsset('fixedAssets','${fa.id}','residualRate',Number(this.value))">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;width:70px">
+            <span style="font-size:10px;color:var(--sub)">비고</span>
+            <input class="form-input" value="${fa.note||''}" placeholder="비고" onchange="updateAsset('fixedAssets','${fa.id}','note',this.value)">
+          </div>
+          <button class="btn-del" onclick="removeAsset('fixedAssets','${fa.id}')">✕</button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:150px">
-          <span style="font-size:10px;color:var(--sub)">취득가</span>
-          <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(fa.amount)}" placeholder="43,000,000"
-            oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
-            onchange="updateAsset('fixedAssets','${fa.id}','amount',Number(this.value.replace(/,/g,'')))">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:140px">
-          <span style="font-size:10px;color:var(--sub)">취득일</span>
-          <input type="date" class="form-input" value="${fa.purchaseDate||''}" onchange="updateAsset('fixedAssets','${fa.id}','purchaseDate',this.value)">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:55px">
-          <span style="font-size:10px;color:var(--sub)">연수</span>
-          <input type="number" class="form-input" style="text-align:center" value="${fa.depYears}" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;width:55px">
-          <span style="font-size:10px;color:var(--sub)">잔가%</span>
-          <input type="number" class="form-input" style="text-align:center" value="${fa.residualRate??10}" onchange="updateAsset('fixedAssets','${fa.id}','residualRate',Number(this.value))">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;flex:0.7;min-width:70px">
-          <span style="font-size:10px;color:var(--sub)">비고</span>
-          <input class="form-input" value="${fa.note||''}" placeholder="비고" onchange="updateAsset('fixedAssets','${fa.id}','note',this.value)">
-        </div>
-        <button class="btn-del" onclick="removeAsset('fixedAssets','${fa.id}')">✕</button>
       </div>
       ${depHTML}
     </div>`;
@@ -1524,32 +1528,32 @@ function renderLiabilities() {
 
     return `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <div class="form-row" style="margin-bottom:4px;align-items:flex-end;min-width:700px">
-          <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:110px">
+        <div class="form-row" style="margin-bottom:4px;align-items:flex-end;min-width:650px">
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:80px">
             <span style="font-size:10px;color:var(--sub)">대출명</span>
             <input class="form-input" value="${li.name||''}" placeholder="아낌e보금자리론" onchange="updateAsset('liabilities','${li.id}','name',this.value)">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:150px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:130px">
             <span style="font-size:10px;color:var(--sub)">대출원금</span>
             <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(li.amount)}" placeholder="380,000,000"
               oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
               onchange="updateAsset('liabilities','${li.id}','amount',Number(this.value.replace(/,/g,'')))">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:60px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:68px">
             <span style="font-size:10px;color:var(--sub)">이자율%</span>
             <input type="number" step="0.1" class="form-input" style="text-align:center" value="${li.interestRate||''}" placeholder="3.5"
               onchange="updateAsset('liabilities','${li.id}','interestRate',Number(this.value))">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:130px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:125px">
             <span style="font-size:10px;color:var(--sub)">시작일</span>
             <input type="date" class="form-input" value="${normalizeDate(li.startDate)||''}" onchange="updateAsset('liabilities','${li.id}','startDate',this.value)">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:50px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:60px">
             <span style="font-size:10px;color:var(--sub)">기간(년)</span>
             <input type="number" class="form-input" style="text-align:center" value="${li.loanYears||''}" placeholder="40"
               onchange="updateAsset('liabilities','${li.id}','loanYears',Number(this.value))">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:95px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:90px">
             <span style="font-size:10px;color:var(--sub)">상환방식</span>
             <select class="form-select" onchange="updateAsset('liabilities','${li.id}','repayType',this.value)">
               <option value="원리금균등" ${li.repayType==='원리금균등'?'selected':''}>원리금균등</option>
@@ -1557,7 +1561,7 @@ function renderLiabilities() {
               <option value="체증식" ${li.repayType==='체증식'?'selected':''}>체증식</option>
             </select>
           </div>
-          ${isGrad ? `<div style="display:flex;flex-direction:column;gap:2px;width:55px">
+          ${isGrad ? `<div style="display:flex;flex-direction:column;gap:2px;width:60px">
             <span style="font-size:10px;color:var(--sub)">체증률%</span>
             <input type="number" step="0.5" class="form-input" style="text-align:center" value="${li.growthRate||2}" 
               onchange="updateAsset('liabilities','${li.id}','growthRate',Number(this.value))">
