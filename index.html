@@ -86,7 +86,8 @@ body {
 .tab-btn.active { border-bottom-color: var(--blue); color: var(--blue); font-weight: 700; }
 
 /* Content */
-.content { padding: 20px 24px; max-width: 1100px; margin: 0 auto; }
+.content { padding: 20px 24px; max-width: 1100px; margin: 0 auto; transition: max-width 0.2s; }
+.content.wide { max-width: 1600px; }
 .tab-page { display: none; }
 .tab-page.active { display: block; }
 
@@ -670,6 +671,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('page-' + btn.dataset.tab).classList.add('active');
+    // Wide mode for fixed & assets tabs
+    const content = document.querySelector('.content');
+    const wideTabs = ['fixed','assets','pnl'];
+    content.classList.toggle('wide', wideTabs.includes(btn.dataset.tab));
     renderAll();
   });
 });
@@ -960,17 +965,20 @@ function getFilteredFixed() {
 
 function renderFixed() {
   const all = state.fixed;
+  const filtered = getFilteredFixed();
   const total = all.reduce((s, f) => s + f.amount, 0);
+  const fTotal = filtered.reduce((s, f) => s + f.amount, 0);
   const sukTotal = all.filter(f => f.who === '쑥').reduce((s,f) => s+f.amount, 0);
   const dungTotal = all.filter(f => f.who === '둥').reduce((s,f) => s+f.amount, 0);
   const bothTotal = total - sukTotal - dungTotal;
+  const fl = fixedFilterWho;
 
   // Stats
   document.getElementById('fixedStats').innerHTML = [
-    statCardHTML('고정비 합계', total, 'var(--orange)', `${all.length}건`),
-    statCardHTML('🍀 쑥', sukTotal, '#FF85C0'),
-    statCardHTML('💙 둥', dungTotal, '#74C0FC'),
-    statCardHTML('공동', bothTotal, 'var(--sub)'),
+    statCardHTML(fl==='전체'?'고정비 합계':`고정비 (${fl})`, fl==='전체'?total:fTotal, 'var(--orange)', `${fl==='전체'?all.length:filtered.length}건`),
+    statCardHTML('🍀 쑥', sukTotal, fl==='쑥'?'#FF85C0':'var(--sub)'),
+    statCardHTML('💙 둥', dungTotal, fl==='둥'?'#74C0FC':'var(--sub)'),
+    statCardHTML('공동', bothTotal, fl==='공동'?'var(--text)':'var(--sub)'),
   ].join('');
 
   const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -978,7 +986,7 @@ function renderFixed() {
 
   // Category chart
   const catMap = {};
-  all.forEach(f => { catMap[f.cat||'기타'] = (catMap[f.cat||'기타']||0) + f.amount; });
+  filtered.forEach(f => { catMap[f.cat||'기타'] = (catMap[f.cat||'기타']||0) + f.amount; });
   const catEntries = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
   
   if (chartFixedCat) chartFixedCat.destroy();
@@ -1005,7 +1013,7 @@ function renderFixed() {
 
   // Payment method chart
   const methMap = {};
-  all.forEach(f => { const m = f.method||'기타'; methMap[m] = (methMap[m]||0) + f.amount; });
+  filtered.forEach(f => { const m = f.method||'기타'; methMap[m] = (methMap[m]||0) + f.amount; });
   const methEntries = Object.entries(methMap).sort((a,b) => b[1]-a[1]);
   const methColors = ['#845EF7','#3182F6','#00C9A7','#FFA94D','#FF6B6B','#FF85C0'];
 
@@ -1033,7 +1041,7 @@ function renderFixed() {
 
   // Payment day timeline
   const dayMap = {};
-  all.forEach(f => {
+  filtered.forEach(f => {
     const d = f.day || 0;
     if (!dayMap[d]) dayMap[d] = [];
     dayMap[d].push(f);
@@ -1046,7 +1054,7 @@ function renderFixed() {
         const items = dayMap[d];
         if (!items) return `<div style="width:36px;height:36px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)">${d}</div>`;
         const dayTotal = items.reduce((s,f) => s+f.amount, 0);
-        const intensity = Math.min(dayTotal / (total * 0.3), 1);
+        const intensity = Math.min(dayTotal / (fTotal * 0.3 || 1), 1);
         const bg = `rgba(255,169,77,${0.15 + intensity * 0.6})`;
         return `<div style="width:36px;height:36px;border-radius:8px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);cursor:pointer;border:2px solid var(--orange);position:relative" title="${items.map(f=>f.desc+' '+fmtFull(f.amount)).join('\n')}">${d}</div>`;
       }).join('')}
@@ -1072,8 +1080,7 @@ function renderFixed() {
     </div>
   `;
 
-  // Filtered & sorted list
-  const filtered = getFilteredFixed();
+  // List
   document.getElementById('fixedCount').textContent = `(${filtered.length}/${all.length}건)`;
 
   document.getElementById('fixedList').innerHTML = filtered.map(f => {
