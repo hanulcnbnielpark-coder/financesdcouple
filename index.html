@@ -1293,8 +1293,18 @@ function renderFixedAssetsWithDepreciation() {
   const fmtA = v => v ? v.toLocaleString() : '';
   const now = new Date();
 
+  // Ensure defaults are set in state
+  let needSave = false;
+  list.forEach(fa => {
+    if (!fa.depYears || fa.depYears <= 0) { fa.depYears = 5; needSave = true; }
+    if (fa.purchaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(fa.purchaseDate)) {
+      fa.purchaseDate = normalizeDate(fa.purchaseDate); needSave = true;
+    }
+  });
+  if (needSave) saveState();
+
   document.getElementById('fixedAssetsList').innerHTML = list.length ? list.map(fa => {
-    const years = fa.depYears || 5;
+    const years = fa.depYears;
     const hasDate = fa.purchaseDate && fa.amount > 0;
 
     // Auto depreciation calculation (정액법)
@@ -1554,6 +1564,7 @@ async function syncWithSheets() {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
+      redirect: 'follow',
     });
     const result = await res.json();
     if (result.status === 'ok') {
@@ -1616,7 +1627,13 @@ async function loadFromSheets() {
       if (d.fixed && d.fixed.length > 0) state.fixed = d.fixed;
       if (d.savings && d.savings.length > 0) state.savings = d.savings;
       if (d.investments && d.investments.length > 0) state.investments = d.investments;
-      if (d.fixedAssets && d.fixedAssets.length > 0) state.fixedAssets = d.fixedAssets;
+      if (d.fixedAssets && d.fixedAssets.length > 0) {
+        state.fixedAssets = d.fixedAssets.map(fa => ({
+          ...fa,
+          purchaseDate: normalizeDate(fa.purchaseDate),
+          depYears: fa.depYears || 5,
+        }));
+      }
       if (d.liabilities && d.liabilities.length > 0) state.liabilities = d.liabilities;
       saveState();
       renderAll();
