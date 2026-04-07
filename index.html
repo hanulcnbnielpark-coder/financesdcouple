@@ -295,7 +295,7 @@ body {
       <div class="month-label" id="monthLabel">4월</div>
       <button onclick="changeMonth(1)">▶</button>
     </div>
-    <button class="sync-btn" id="syncBtn" onclick="syncWithSheets()">
+    <button class="sync-btn" id="syncBtn" onclick="headerSync()">
       <span id="syncIcon">↻</span> 동기화
     </button>
     <button class="theme-btn" onclick="toggleTheme()">☀️</button>
@@ -311,6 +311,10 @@ body {
   <button class="tab-btn" data-tab="balance">재무상태표</button>
   <button class="tab-btn" data-tab="pnl">손익계산서</button>
   <button class="tab-btn" data-tab="settings">설정</button>
+</div>
+
+<div id="loadingBanner" style="display:none;padding:10px 24px;background:var(--blue);color:#fff;font-size:13px;font-weight:600;text-align:center">
+  📡 시트에서 데이터 불러오는 중...
 </div>
 
 <div class="content">
@@ -469,7 +473,8 @@ body {
       </div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn-add" onclick="testConnection()">연결 테스트</button>
-        <button class="btn-add green" onclick="syncWithSheets()">전체 동기화</button>
+        <button class="btn-add" style="background:var(--cyan)" onclick="manualLoad()">시트에서 불러오기</button>
+        <button class="btn-add green" onclick="syncWithSheets()">시트에 저장</button>
         <button class="btn-add red" onclick="if(confirm('로컬 데이터를 모두 초기화할까요?')){localStorage.clear();location.reload();}">데이터 초기화</button>
       </div>
       <div id="syncStatus" style="margin-top:12px;font-size:12px;color:var(--sub)"></div>
@@ -1236,6 +1241,34 @@ async function fetchPrices() {
   }
 }
 
+async function loadFromSheets() {
+  if (!state.gasUrl) return;
+  try {
+    const res = await fetch(state.gasUrl + '?action=read');
+    const result = await res.json();
+    if (result.status === 'ok' && result.data) {
+      const d = result.data;
+      if (d.daily) {
+        state.daily = {};
+        for (let m = 1; m <= 12; m++) state.daily[m] = { income:[], expenses:[] };
+        Object.entries(d.daily).forEach(([m, v]) => { state.daily[Number(m)] = v; });
+      }
+      if (d.fixed && d.fixed.length > 0) state.fixed = d.fixed;
+      if (d.savings && d.savings.length > 0) state.savings = d.savings;
+      if (d.investments && d.investments.length > 0) state.investments = d.investments;
+      if (d.fixedAssets && d.fixedAssets.length > 0) state.fixedAssets = d.fixedAssets;
+      if (d.liabilities && d.liabilities.length > 0) state.liabilities = d.liabilities;
+      saveState();
+      renderAll();
+      await fetchPrices();
+      return true;
+    }
+  } catch(e) {
+    console.log('Load error:', e);
+  }
+  return false;
+}
+
 async function testConnection() {
   if (!state.gasUrl) {
     showSyncStatus('⚠ GAS URL을 먼저 입력해주세요', 'var(--red)');
@@ -1249,6 +1282,25 @@ async function testConnection() {
   } catch(e) {
     showSyncStatus(`✕ 연결 실패: ${e.message}`, 'var(--red)');
   }
+}
+
+async function manualLoad() {
+  showSyncStatus('시트에서 불러오는 중...', 'var(--blue)');
+  const ok = await loadFromSheets();
+  if (ok) {
+    showSyncStatus(`✓ 불러오기 완료 (${new Date().toLocaleTimeString()})`, 'var(--green)');
+  } else {
+    showSyncStatus('⚠ 불러오기 실패', 'var(--red)');
+  }
+}
+
+async function headerSync() {
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('syncing');
+  document.getElementById('syncIcon').textContent = '⟳';
+  const ok = await loadFromSheets();
+  btn.classList.remove('syncing');
+  document.getElementById('syncIcon').textContent = '↻';
 }
 
 function showSyncStatus(msg, color) {
@@ -1274,9 +1326,17 @@ loadTheme();
 loadState();
 renderAll();
 
-// Auto-fetch prices on load if GAS URL is set
+// Auto-load from sheets on startup
 if (state.gasUrl) {
-  fetchPrices().catch(() => {});
+  const banner = document.getElementById('loadingBanner');
+  banner.style.display = 'block';
+  loadFromSheets().then(() => {
+    banner.style.display = 'none';
+  }).catch(() => {
+    banner.textContent = '⚠ 시트 연결 실패 — 로컬 데이터 표시 중';
+    banner.style.background = 'var(--red)';
+    setTimeout(() => banner.style.display = 'none', 3000);
+  });
 }
 </script>
 </body>
