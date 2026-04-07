@@ -212,14 +212,71 @@ body {
 .who-sel button.active-both { background: #A9E34B; color: #1a1a1a; }
 
 /* Responsive */
-@media (max-width: 640px) {
-  .header { padding: 12px 16px; }
+/* ===== Tablet (iPad Pro 11" portrait: 834px) ===== */
+@media (max-width: 1024px) {
+  .content { padding: 16px 20px; max-width: 100%; }
+  .stat-card { min-width: 140px; }
+  .form-row { gap: 6px; }
+  .form-input, .form-select { font-size: 13px; padding: 7px 10px; }
+}
+
+/* ===== Small tablet / Large phone (landscape) ===== */
+@media (max-width: 834px) {
   .content { padding: 14px 16px; }
-  .tabs { padding: 0 16px; }
-  .stat-card { min-width: 120px; padding: 12px 14px; }
-  .stat-value { font-size: 18px; }
-  .form-row { flex-wrap: wrap; }
+  .two-col { flex-direction: column; }
   .two-col > * { min-width: 100%; }
+  .stat-card { min-width: 130px; padding: 14px 16px; }
+  .form-row { flex-wrap: wrap; }
+  .form-input[type="date"] { min-width: 120px; }
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 640px) {
+  html { font-size: 14px; }
+  .header { padding: 10px 14px; }
+  .header-controls { gap: 6px; }
+  .logo { font-size: 17px; }
+  .content { padding: 12px 12px; }
+  .tabs { padding: 0 12px; gap: 0; }
+  .tab-btn { padding: 10px 12px; font-size: 13px; }
+  .card { padding: 14px; border-radius: 12px; }
+  .card-title { font-size: 15px; }
+  .stats { gap: 8px; }
+  .stat-card { min-width: 100px; padding: 12px; flex: 1 1 calc(50% - 4px); }
+  .stat-value { font-size: 17px; }
+  .stat-label { font-size: 12px; }
+  .stat-sub { font-size: 11px; }
+  .form-row { flex-wrap: wrap; gap: 6px; }
+  .form-input, .form-select { font-size: 13px; padding: 8px 10px; }
+  .form-input[type="date"] { flex: 1 1 100%; min-width: 0; }
+  .form-input.w-full { flex: 1 1 100%; }
+  .who-sel { order: -1; }
+  .who-sel button { padding: 4px 8px; font-size: 11px; }
+  .btn-add { padding: 6px 10px; font-size: 12px; }
+  .btn-del { padding: 2px 4px; font-size: 14px; }
+  .two-col { flex-direction: column; gap: 10px; }
+  .two-col > * { min-width: 100%; }
+  .list-row .name { font-size: 14px; }
+  .list-row .amount { font-size: 14px; }
+  .chart-wrap { height: 200px; }
+  .chart-wrap canvas { max-height: 200px; }
+  .bs-row { font-size: 13px; }
+  .bs-row.large { font-size: 14px; }
+  .progress-header { font-size: 12px; }
+  .sync-btn { font-size: 11px; padding: 4px 8px; }
+  .month-sel .month-label { font-size: 13px; }
+}
+
+/* ===== Very small phone ===== */
+@media (max-width: 380px) {
+  html { font-size: 13px; }
+  .stat-card { flex: 1 1 calc(50% - 4px); min-width: 0; padding: 10px; }
+  .stat-value { font-size: 15px; }
+  .header { flex-wrap: wrap; gap: 8px; }
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: 9px 10px; font-size: 12px; }
+  .who-sel button { padding: 3px 6px; font-size: 10px; }
+  .form-input, .form-select { padding: 7px 8px; font-size: 12px; }
 }
 </style>
 </head>
@@ -309,7 +366,9 @@ body {
         <button class="btn-add" style="background:var(--orange)" onclick="addFixedRow()">+ 고정비 추가</button>
       </div>
       <div style="font-size:12px;color:var(--sub);margin-bottom:12px">매월 자동으로 지출에 반영됩니다</div>
-      <div id="fixedList"></div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div id="fixedList" style="min-width:650px"></div>
+      </div>
     </div>
   </div>
 
@@ -329,14 +388,18 @@ body {
         <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--cyan)"></div>투자 포트폴리오</div>
         <button class="btn-add" style="background:var(--cyan)" onclick="addInvestment()">+ 종목 추가</button>
       </div>
-      <div style="font-size:12px;color:var(--sub);margin-bottom:8px;display:flex;gap:6px;padding:0 4px;align-items:center">
-        <span style="flex:1.2">종목명</span><span style="width:70px">코드</span><span style="width:70px">증권사</span>
-        <span style="width:50px;text-align:right">수량</span><span style="width:100px;text-align:right">매수평단가</span>
-        <span style="width:100px;text-align:right">현재가</span><span style="width:110px;text-align:right">평가손익</span>
-        <span style="width:60px;text-align:right">수익률</span><span style="width:28px"></span>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div style="min-width:780px">
+          <div style="font-size:12px;color:var(--sub);margin-bottom:8px;display:flex;gap:6px;padding:0 4px;align-items:center">
+            <span style="flex:1.2">종목명</span><span style="width:70px">코드</span><span style="width:70px">증권사</span>
+            <span style="width:50px;text-align:right">수량</span><span style="width:100px;text-align:right">매수평단가</span>
+            <span style="width:100px;text-align:right">현재가</span><span style="width:110px;text-align:right">평가손익</span>
+            <span style="width:60px;text-align:right">수익률</span><span style="width:28px"></span>
+          </div>
+          <div id="investmentsList"></div>
+        </div>
       </div>
-      <div id="investmentsList"></div>
-      <div id="investmentTotal" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;font-size:15px;font-weight:700"></div>
+      <div id="investmentTotal" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;font-size:15px;font-weight:700;flex-wrap:wrap"></div>
     </div>
     <div class="two-col">
       <div class="card">
@@ -678,8 +741,8 @@ function whoBreakdownHTML(m) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <span style="font-size:14px;font-weight:700">쑥·둥 지출 비교</span>
     </div>
-    <div style="display:flex;gap:16px;margin-bottom:10px;font-size:13px">
-      <span>🩷 쑥 <b style="color:#FF85C0">${fmt(sukExp)}</b> (${sukPct}%)</span>
+    <div style="display:flex;gap:12px 16px;margin-bottom:10px;font-size:13px;flex-wrap:wrap">
+      <span>🍀 쑥 <b style="color:#FF85C0">${fmt(sukExp)}</b> (${sukPct}%)</span>
       <span>💙 둥 <b style="color:#74C0FC">${fmt(dungExp)}</b> (${dungPct}%)</span>
       <span>🤝 공동 <b>${fmt(bothExp)}</b> (${bothPct}%)</span>
     </div>
@@ -750,7 +813,7 @@ function updateDaily(type, id, field, value) {
   const list = type === 'income' ? state.daily[m].income : state.daily[m].expenses;
   const item = list.find(x => x.id === id);
   if (item) item[field] = value;
-  saveState(); renderDashboard();
+  saveState(); renderDaily(); renderDashboard();
 }
 
 function removeDaily(type, id) {
@@ -769,7 +832,7 @@ function renderFixed() {
 
   document.getElementById('fixedStats').innerHTML = [
     statCardHTML('고정비 합계', total, 'var(--orange)'),
-    statCardHTML('🩷 쑥', sukTotal, '#FF85C0'),
+    statCardHTML('🍀 쑥', sukTotal, '#FF85C0'),
     statCardHTML('💙 둥', dungTotal, '#74C0FC'),
     statCardHTML('공동', bothTotal, 'var(--sub)'),
   ].join('');
@@ -805,7 +868,7 @@ function addFixedRow() {
 function updateFixed(id, field, value) {
   const item = state.fixed.find(f => f.id === id);
   if (item) item[field] = value;
-  saveState(); renderDashboard();
+  saveState(); renderFixed(); renderDashboard();
 }
 function removeFixed(id) {
   state.fixed = state.fixed.filter(f => f.id !== id);
