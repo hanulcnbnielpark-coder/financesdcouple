@@ -1822,7 +1822,7 @@ async function fetchPrices() {
   if (!state.gasUrl) return;
   try {
     const codes = state.investments.filter(i => i.code).map(i => ({
-      id: i.id, code: i.code, market: i.market
+      id: i.id, code: i.code, market: i.market, buyDate: i.buyDate || ''
     }));
     if (codes.length === 0) return;
 
@@ -1831,7 +1831,10 @@ async function fetchPrices() {
     if (result.status === 'ok' && result.prices) {
       result.prices.forEach(p => {
         const inv = state.investments.find(i => i.id === p.id);
-        if (inv && p.price > 0) inv.currentPrice = p.price;
+        if (inv) {
+          if (p.price > 0) inv.currentPrice = p.price;
+          if (p.buyExRate > 0 && inv.market === '미국') inv.buyExRate = p.buyExRate;
+        }
       });
       if (result.exchangeRate) state.exchangeRate = result.exchangeRate;
       saveState();
