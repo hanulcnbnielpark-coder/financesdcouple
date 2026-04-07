@@ -607,16 +607,20 @@ function loadState() {
       const parsed = JSON.parse(saved);
       state = { ...state, ...parsed };
     }
-    // Ensure GAS URL is set
     if (!state.gasUrl) state.gasUrl = defaultGasUrl;
-    // Migrate old month-only keys to year-month keys
-    for (let m = 1; m <= 12; m++) {
-      if (state.daily[m] && !state.daily[dk(state.year, m)]) {
-        state.daily[dk(state.year, m)] = state.daily[m];
-        delete state.daily[m];
+    state.month = Number(state.month) || (new Date().getMonth() + 1);
+    state.year = Number(state.year) || new Date().getFullYear();
+    // Migrate old keys + cleanup NaN keys
+    const badKeys = [];
+    for (const key of Object.keys(state.daily)) {
+      if (String(key).includes('NaN') || String(key).includes('undefined')) { badKeys.push(key); continue; }
+      const m = Number(key);
+      if (!isNaN(m) && m >= 1 && m <= 12) {
+        if (!state.daily[dk(state.year, m)]) state.daily[dk(state.year, m)] = state.daily[key];
+        badKeys.push(key);
       }
     }
-    // Load sample data if empty
+    badKeys.forEach(k => delete state.daily[k]);
   } catch(e) { console.error('Load error:', e); }
 }
 
@@ -659,7 +663,7 @@ function todayStr() {
 
 // ==================== MONTH CONTROL ====================
 function changeMonth(delta) {
-  state.month += delta;
+  state.month = Number(state.month) + delta;
   if (state.month < 1) { state.month = 12; state.year--; }
   if (state.month > 12) { state.month = 1; state.year++; }
   saveState();
@@ -1857,8 +1861,20 @@ async function loadFromSheets() {
         // Merge loaded data with year-month keys
         const fixDates = list => list.map(item => ({...item, date: normalizeDate(item.date)}));
         Object.entries(d.daily).forEach(([m, v]) => {
-          // GAS returns month-only keys, map to current year
-          const key = String(m).includes('-') ? m : dk(state.year, Number(m));
+          let key;
+          if (String(m).includes('NaN') || String(m).includes('undefined')) {
+            // Recover month from first item's date
+            const items = [...(v.income||[]), ...(v.expenses||[])];
+            if (items.length > 0 && items[0].date) {
+              const dt = normalizeDate(items[0].date);
+              const parts = dt.split('-');
+              if (parts.length >= 2) key = state.year + '-' + Number(parts[1]);
+            }
+            if (!key) return;
+          } else {
+            key = String(m).includes('-') ? m : dk(state.year, Number(m));
+          }
+          if (key.includes('NaN')) return;
           state.daily[key] = {
             income: fixDates(v.income || []),
             expenses: fixDates(v.expenses || []),
