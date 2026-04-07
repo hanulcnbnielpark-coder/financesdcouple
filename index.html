@@ -1080,11 +1080,42 @@ function renderFixed() {
 
   document.getElementById('fixedList').innerHTML = filtered.map(f => {
     const w = f.who || '';
-    const hasInstall = f.totalPay > 0;
-    const paidPct = hasInstall ? Math.min((f.paidPay||0)/f.totalPay*100, 100) : 0;
-    const remaining = hasInstall ? f.totalPay - (f.paidPay||0) : 0;
+    const isLoan = ['대출이자','자동차할부'].includes(f.cat);
 
-    return `<div style="margin-bottom:${hasInstall?'2':'8'}px" data-id="${f.id}">
+    // Auto-calculate installment progress
+    let installHTML = '';
+    if (isLoan) {
+      const hasData = f.startDate && f.totalPay > 0;
+      let paidPay = 0, paidPct = 0, remaining = 0, endDate = '';
+      if (hasData) {
+        const start = new Date(f.startDate);
+        const now = new Date();
+        paidPay = Math.max(0, (now.getFullYear()-start.getFullYear())*12 + (now.getMonth()-start.getMonth()));
+        paidPay = Math.min(paidPay, f.totalPay);
+        remaining = f.totalPay - paidPay;
+        paidPct = (paidPay / f.totalPay * 100);
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + f.totalPay);
+        endDate = `${end.getFullYear()}.${String(end.getMonth()+1).padStart(2,'0')}`;
+      }
+
+      installHTML = `<div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px 2px;font-size:12px">
+        <span style="color:var(--sub);white-space:nowrap">📊</span>
+        <input type="date" class="form-input" style="width:130px;font-size:11px;padding:3px 6px" value="${f.startDate||''}" placeholder="시작일" title="첫 납부일" onchange="updateFixed('${f.id}','startDate',this.value)">
+        <input type="number" class="form-input" style="width:55px;text-align:center;font-size:11px;padding:3px" value="${f.totalPay||''}" placeholder="총회수" onchange="updateFixed('${f.id}','totalPay',Number(this.value))">
+        <span style="color:var(--sub)">회</span>
+        ${hasData ? `
+          <div style="flex:1;display:flex;align-items:center;gap:6px">
+            <div style="flex:1;max-width:150px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${paidPct}%;height:100%;background:${paidPct>=100?'var(--green)':'var(--blue)'};border-radius:3px"></div>
+            </div>
+            <span style="color:var(--text);font-weight:600;white-space:nowrap">${paidPay}/${f.totalPay}회 (${paidPct.toFixed(0)}%)</span>
+            <span style="color:var(--sub);white-space:nowrap">잔여 ${remaining}회 · 완납 ${endDate}</span>
+          </div>` : '<span style="color:var(--muted)">시작일과 총 회수를 입력하세요</span>'}
+      </div>`;
+    }
+
+    return `<div style="margin-bottom:8px" data-id="${f.id}">
       <div class="form-row" style="margin-bottom:0">
         <div class="who-sel">
           <button class="${w==='쑥'?'active-suk':''}" onclick="updateFixed('${f.id}','who','쑥')">쑥</button>
@@ -1104,16 +1135,7 @@ function renderFixed() {
         </select>
         <button class="btn-del" onclick="removeFixed('${f.id}')">✕</button>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;padding:2px 0 6px 0;margin-left:2px">
-        <span style="font-size:11px;color:var(--sub);cursor:pointer;white-space:nowrap" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none'">${hasInstall ? `📊 ${f.paidPay||0}/${f.totalPay}회 (${paidPct.toFixed(0)}%) · 잔여 ${remaining}회` : '📊 회차'}</span>
-        <div style="display:${hasInstall?'flex':'none'};align-items:center;gap:4px;flex:1">
-          <input type="number" class="form-input" style="width:55px;text-align:center;font-size:11px;padding:3px" value="${f.paidPay||''}" placeholder="납부" onchange="updateFixed('${f.id}','paidPay',Number(this.value))">
-          <span style="font-size:11px;color:var(--sub)">/</span>
-          <input type="number" class="form-input" style="width:55px;text-align:center;font-size:11px;padding:3px" value="${f.totalPay||''}" placeholder="총회수" onchange="updateFixed('${f.id}','totalPay',Number(this.value))">
-          <span style="font-size:11px;color:var(--sub)">회</span>
-          ${hasInstall ? `<div style="flex:1;max-width:120px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${paidPct}%;height:100%;background:${paidPct>=100?'var(--green)':'var(--blue)'};border-radius:2px"></div></div>` : ''}
-        </div>
-      </div>
+      ${installHTML}
     </div>`;
   }).join('');
 }
@@ -1272,46 +1294,84 @@ function renderFixedAssetsWithDepreciation() {
   const now = new Date();
 
   document.getElementById('fixedAssetsList').innerHTML = list.length ? list.map(fa => {
-    // Depreciation calculation (정액법)
-    let depInfo = '';
-    if (fa.purchaseDate && fa.amount && fa.depYears > 0) {
+    const years = fa.depYears || 5;
+    const hasDate = fa.purchaseDate && fa.amount > 0;
+
+    // Auto depreciation calculation (정액법)
+    let depHTML = '';
+    if (hasDate) {
       const pDate = new Date(fa.purchaseDate);
-      const monthsElapsed = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
-      const totalMonths = fa.depYears * 12;
+      const monthsElapsed = Math.max(0, (now.getFullYear()-pDate.getFullYear())*12 + (now.getMonth()-pDate.getMonth()));
+      const totalMonths = years * 12;
       const monthlyDep = fa.amount / totalMonths;
-      const accumulated = Math.min(monthlyDep * monthsElapsed, fa.amount);
+      const accumulated = Math.min(Math.round(monthlyDep * monthsElapsed), fa.amount);
       const currentVal = Math.max(fa.amount - accumulated, 0);
       const depPct = Math.min(monthsElapsed / totalMonths * 100, 100);
+      const yearsElapsed = (monthsElapsed/12);
 
-      depInfo = `
-        <div style="margin-top:6px;padding:8px 12px;background:var(--card2);border-radius:8px;font-size:12px">
-          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
-            <span>취득가 <b>${fmtFull(fa.amount)}</b></span>
-            <span>감가누계 <b style="color:var(--red)">${fmtFull(Math.round(accumulated))}</b></span>
-            <span>현재가치 <b style="color:var(--green)">${fmtFull(Math.round(currentVal))}</b></span>
-            <span>경과 <b>${(monthsElapsed/12).toFixed(1)}년</b> / ${fa.depYears}년</span>
+      depHTML = `
+        <div style="margin-top:6px;padding:10px 14px;background:var(--card2);border-radius:10px;font-size:13px">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">취득가</span>
+              <span style="font-weight:700">${fmtFull(fa.amount)}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">감가누계</span>
+              <span style="font-weight:700;color:var(--red)">−${fmtFull(accumulated)}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">현재 장부가</span>
+              <span style="font-weight:800;color:var(--green);font-size:15px">${fmtFull(currentVal)}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">경과</span>
+              <span style="font-weight:600">${yearsElapsed.toFixed(1)}년 / ${years}년</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--sub)">월 감가</span>
+              <span style="font-weight:600">${fmtFull(Math.round(monthlyDep))}</span>
+            </div>
           </div>
           <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-            <div style="width:${depPct}%;height:100%;background:linear-gradient(90deg,var(--green),${depPct>70?'var(--red)':'var(--orange)'});border-radius:3px;transition:width 0.4s"></div>
+            <div style="width:${depPct}%;height:100%;background:linear-gradient(90deg,var(--green),${depPct>70?'var(--red)':'var(--orange)'});border-radius:3px"></div>
           </div>
-          <div style="text-align:right;margin-top:3px;font-size:11px;color:var(--sub)">감가상각률 ${depPct.toFixed(1)}% (정액법)</div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--sub)">
+            <span>정액법 · 내용연수 ${years}년</span>
+            <span>상각률 ${depPct.toFixed(1)}%${depPct>=100?' ✓ 완전상각':''}</span>
+          </div>
         </div>`;
     }
 
-    return `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-      <div class="form-row" style="margin-bottom:4px">
-        <input class="form-input" style="flex:1;min-width:100px" value="${fa.name||''}" placeholder="자산명" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value)">
-        <input class="form-input" style="width:150px;text-align:right;font-weight:600" value="${fmtA(fa.amount)}" placeholder="취득가"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
-          onchange="updateAsset('fixedAssets','${fa.id}','amount',Number(this.value.replace(/,/g,'')))">
-        <input type="date" class="form-input" style="width:140px" value="${fa.purchaseDate||''}" title="취득일" onchange="updateAsset('fixedAssets','${fa.id}','purchaseDate',this.value)">
-        <input type="number" class="form-input" style="width:60px;text-align:center" value="${fa.depYears||''}" placeholder="연수" title="내용연수(년)" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
-        <input class="form-input" style="flex:0.7;min-width:70px" value="${fa.note||''}" placeholder="비고" onchange="updateAsset('fixedAssets','${fa.id}','note',this.value)">
+    return `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div class="form-row" style="margin-bottom:4px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:100px">
+          <span style="font-size:10px;color:var(--sub)">자산명</span>
+          <input class="form-input" value="${fa.name||''}" placeholder="캐스퍼 EV3" onchange="updateAsset('fixedAssets','${fa.id}','name',this.value)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;width:150px">
+          <span style="font-size:10px;color:var(--sub)">취득가</span>
+          <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(fa.amount)}" placeholder="43,000,000"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
+            onchange="updateAsset('fixedAssets','${fa.id}','amount',Number(this.value.replace(/,/g,'')))">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;width:140px">
+          <span style="font-size:10px;color:var(--sub)">취득일</span>
+          <input type="date" class="form-input" value="${fa.purchaseDate||''}" onchange="updateAsset('fixedAssets','${fa.id}','purchaseDate',this.value)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;width:65px">
+          <span style="font-size:10px;color:var(--sub)">내용연수</span>
+          <input type="number" class="form-input" style="text-align:center" value="${fa.depYears||5}" onchange="updateAsset('fixedAssets','${fa.id}','depYears',Number(this.value))">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex:0.7;min-width:70px">
+          <span style="font-size:10px;color:var(--sub)">비고</span>
+          <input class="form-input" value="${fa.note||''}" placeholder="비고" onchange="updateAsset('fixedAssets','${fa.id}','note',this.value)">
+        </div>
         <button class="btn-del" onclick="removeAsset('fixedAssets','${fa.id}')">✕</button>
       </div>
-      ${depInfo}
+      ${depHTML}
     </div>`;
-  }).join('') : '<div style="color:var(--sub);text-align:center;padding:12px;font-size:13px">고정자산을 추가하세요</div>';
+  }).join('') : '<div style="color:var(--sub);text-align:center;padding:12px;font-size:14px">고정자산을 추가하세요 (차량, 부동산 등)</div>';
 }
 
 // ==================== RENDER: BALANCE SHEET ====================
