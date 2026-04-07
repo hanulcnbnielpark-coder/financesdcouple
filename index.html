@@ -559,6 +559,22 @@ function fmt(n) {
   return n.toLocaleString() + '원';
 }
 function fmtFull(n) { return (n||0).toLocaleString() + '원'; }
+function fmtDate(d) {
+  if (!d) return '';
+  const s = normalizeDate(d);
+  if (!s) return '';
+  const parts = s.split('-');
+  return `${parts[1]}.${parts[2]}`;
+}
+function normalizeDate(d) {
+  if (!d) return '';
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt)) return String(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  } catch(e) { return String(d); }
+}
 function todayStr() {
   const d = new Date();
   return `${state.year}-${String(state.month).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -707,7 +723,7 @@ function renderDashboard() {
     return `<div class="list-row">
       <div class="left">
         <div class="name">${whoTag}${tx.desc}</div>
-        <div class="desc">${tx.date || ''} · ${tx.cat}${tx.source ? ' · '+tx.source : ''}</div>
+        <div class="desc">${fmtDate(tx.date)} · ${tx.cat}${tx.source ? ' · '+tx.source : ''}</div>
       </div>
       <div class="amount" style="color:${tx.type==='income'?'var(--blue)':'var(--red)'}">
         ${tx.type==='income'?'+':'−'}${fmtFull(tx.amount)}
@@ -798,7 +814,7 @@ function dailyRowHTML(item, type, cats) {
       <button class="${w==='둥'?'active-dung':''}" onclick="updateDaily('${type}','${item.id}','who','둥')">둥</button>
       <button class="${w==='공동'?'active-both':''}" onclick="updateDaily('${type}','${item.id}','who','공동')">공동</button>
     </div>
-    <input type="date" class="form-input" value="${item.date||''}" onchange="updateDaily('${type}','${item.id}','date',this.value)">
+    <input type="date" class="form-input" value="${normalizeDate(item.date)}" onchange="updateDaily('${type}','${item.id}','date',this.value)">
     <select class="form-select" onchange="updateDaily('${type}','${item.id}','cat',this.value)">
       <option value="">분류</option>
       ${cats.map(c => `<option value="${c}" ${item.cat===c?'selected':''}>${c}</option>`).join('')}
@@ -1175,15 +1191,11 @@ function saveSettings() {
 async function syncWithSheets() {
   if (!state.gasUrl) {
     showSyncStatus('⚠ GAS 웹앱 URL을 설정해주세요', 'var(--red)');
-    return;
+    return false;
   }
-  const btn = document.getElementById('syncBtn');
-  btn.classList.add('syncing');
-  document.getElementById('syncIcon').textContent = '⟳';
-  showSyncStatus('동기화 중...', 'var(--blue)');
+  showSyncStatus('시트에 저장 중...', 'var(--blue)');
 
   try {
-    // Send data
     const payload = {
       action: 'sync',
       data: {
@@ -1205,15 +1217,15 @@ async function syncWithSheets() {
     if (result.status === 'ok') {
       showSyncStatus('시세 조회 중...', 'var(--blue)');
       await fetchPrices();
-      showSyncStatus(`✓ 동기화 + 시세 완료 (${new Date().toLocaleTimeString()})`, 'var(--green)');
+      showSyncStatus(`✓ 저장 완료 (${new Date().toLocaleTimeString()})`, 'var(--green)');
+      return true;
     } else {
-      showSyncStatus(`⚠ ${result.message || '동기화 실패'}`, 'var(--red)');
+      showSyncStatus(`⚠ ${result.message || '저장 실패'}`, 'var(--red)');
     }
   } catch(e) {
     showSyncStatus(`✕ 연결 실패: ${e.message}`, 'var(--red)');
   }
-  btn.classList.remove('syncing');
-  document.getElementById('syncIcon').textContent = '↻';
+  return false;
 }
 
 async function fetchPrices() {
@@ -1251,7 +1263,13 @@ async function loadFromSheets() {
       if (d.daily) {
         state.daily = {};
         for (let m = 1; m <= 12; m++) state.daily[m] = { income:[], expenses:[] };
-        Object.entries(d.daily).forEach(([m, v]) => { state.daily[Number(m)] = v; });
+        Object.entries(d.daily).forEach(([m, v]) => {
+          const fixDates = list => list.map(item => ({...item, date: normalizeDate(item.date)}));
+          state.daily[Number(m)] = {
+            income: fixDates(v.income || []),
+            expenses: fixDates(v.expenses || []),
+          };
+        });
       }
       if (d.fixed && d.fixed.length > 0) state.fixed = d.fixed;
       if (d.savings && d.savings.length > 0) state.savings = d.savings;
@@ -1298,14 +1316,29 @@ async function headerSync() {
   const btn = document.getElementById('syncBtn');
   btn.classList.add('syncing');
   document.getElementById('syncIcon').textContent = '⟳';
-  const ok = await loadFromSheets();
+  await syncWithSheets();
   btn.classList.remove('syncing');
   document.getElementById('syncIcon').textContent = '↻';
 }
 
 function showSyncStatus(msg, color) {
+  // Settings page status
   const el = document.getElementById('syncStatus');
   if (el) { el.textContent = msg; el.style.color = color; }
+  // Floating toast
+  let toast = document.getElementById('syncToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'syncToast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.background = color === 'var(--green)' ? '#00C9A7' : color === 'var(--red)' ? '#FF6B6B' : '#3182F6';
+  toast.style.color = '#fff';
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }
 
 // ==================== RENDER ALL ====================
