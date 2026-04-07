@@ -6,7 +6,7 @@
 <title>쑥둥 가계부 대시보드</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
@@ -23,11 +23,11 @@
   --input-bg: #F7F8FA; --hover: #F2F4F6;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-html { font-size: 15px; }
+html { font-size: 16px; }
 body {
-  font-family: 'Pretendard', -apple-system, sans-serif;
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg); color: var(--text);
-  min-height: 100vh; line-height: 1.5;
+  min-height: 100vh; line-height: 1.55; letter-spacing: -0.02em;
 }
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -40,10 +40,10 @@ body {
   padding: 14px 24px; border-bottom: 1px solid var(--border);
   background: var(--card); position: sticky; top: 0; z-index: 100;
 }
-.logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .logo span { color: var(--blue); }
 .logo .logo-text { display: inline; }
-.badge { font-size: 11px; background: var(--card2); padding: 2px 7px; border-radius: 5px; color: var(--sub); font-weight: 600; }
+.badge { font-size: 13px; background: var(--card2); padding: 3px 8px; border-radius: 6px; color: var(--sub); font-weight: 600; }
 .header-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 /* Month Selector */
@@ -80,7 +80,7 @@ body {
 .tab-btn {
   padding: 11px 16px; background: none; border: none;
   border-bottom: 2px solid transparent; color: var(--sub);
-  font-weight: 500; font-size: 14px; cursor: pointer;
+  font-weight: 500; font-size: 15px; cursor: pointer;
   font-family: inherit; white-space: nowrap; transition: all 0.15s;
 }
 .tab-btn.active { border-bottom-color: var(--blue); color: var(--blue); font-weight: 700; }
@@ -95,7 +95,7 @@ body {
   background: var(--card); border-radius: var(--radius); padding: 20px;
   border: 1px solid var(--border); margin-bottom: 14px;
 }
-.card-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.card-title { font-size: 17px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .card-title .dot { width: 4px; height: 18px; border-radius: 2px; }
 
 /* Stat Cards */
@@ -105,7 +105,7 @@ body {
   padding: 16px 18px; border: 1px solid var(--border);
 }
 .stat-label { font-size: 13px; color: var(--sub); font-weight: 500; margin-bottom: 4px; }
-.stat-value { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: 12px; margin-top: 3px; }
 
 /* Forms */
@@ -290,7 +290,7 @@ body {
 
 <!-- Header -->
 <div class="header">
-  <div class="logo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAeCAYAAAA/xX6fAAAJ10lEQVR4nJ2Wa4yd11WG37X3/i7nO/czV19mPPbUTjoY5JA2SjEJaarS0haktsyoFEUQRJNSVaIUBK1EOT4kKUURbYpQL0EVKQ0C5rQkSloHaCNXEDXUcRvfMrXHtWOPz/Gc8cyZc/vu+9t788OmkNI/8P5aWtpaj9b68e4X+G8RADKLi/x/9HD2M5/8+MlH65MAYI7VhTlWF8s/9ub/IvpJzeF/HF0QI//tAC1Evd4vs2LxX91bb/1Ebu9tl/+/oB8BjTGEJti3zn70q47rVA7tm1unJHpfwXUJxJCkCYSXg3SdSHvFz3bXrsahHx6/9UMfe87U64waDf3jQ40BEcH8JKAAEVCvU2r0gXnPW0C7g2EYYUg8I85BjHHGmbEcnivVah/bPVXGmeH20wCe+zbAAOjXwgwnInXzev8LSsfqdfHmRiM7+RefeG81iP+xNxxkmixbG5Ahgs0ELNsC58zYZGRldicLJyffseud7/+mWV7mQBPAIl555RX+U0B2eWfubULz/O4P/sHX0GxatLSUvmbDe24WzKiDMpM8kcakJiFlNLg2CLUBswQsS1Deslk+CATC4G4A3wQAWmqqG1AoAFhd/uwJ0/efOPnlT79422/+fnt5cZFPLCzQ5sqKWWo2lWiurBgAMHHyczpTYNwiZhR6UYrtMMBcoQiHCHEq0QkDZhVdeIX8+40xje89+CBd+6uHDutfuLckXz5z39i4W2JEu7VT2DXt5v5y+G9PfaV097uffs1JAeDo6qqz6+8+fyGX6plUaa1h2KXBAOuBj3vn9oC7NlItsbKxhb3Fsrplfpb7r9v31uDrXx9U9u873trMsH+ygFwtDx2liOMUOdcB5VyMjHnmUqtzfhgnnbs+/mePEQB878lH95iVtQsi0RYxMtCaUm1Qch08t3oRL5xex97xCn79ngV4gqnxosf8fOFYeuj2X6t9/8ULstsrIJfTWhMxBiIQ6UxpYzSVC3k24IRT1zc338ZunxUAoOLIjWRkyWEIEAPjHFJr+EmIU602Tm90sLbdw523VDE/VmHtKCLm+gdr9un3qbVOoZ+m8HsDwbgAMQ5GBMY4F4whDCJp5T0qO+7v0B/fHwsAYHumOsHZi70o8MuplGRpjVGmEGYKb5nbBQ8ak5UCdBTgfCtC1XV0wbFcJtVH9VaXbWllNICMWyDGUXBsgHEABJcTL7o2K09PbQEAW15c5G9464MDFAvPujmbjQYjOej1IYzG6kYfx1ZexeE7fhphkOHM1U2kSaKHGxvMT2XR7/b2JIaw5kdULhUwP1lD2bFw+vomhlEECwSltLZgkEXx6wGAvbKwYOr1Otv9hkN/KKulC5Xxsh0T02EmMT9RxkS1iHaYQtgWZip5FMhwWcpf6mlzwihm3FJN3z43gx+0A3zr1DU43MJtO6Yw7nkoCAaXAWQMoNMKAIhGo6FvWtHGv/ztoz8vtf6kSNPfivsjw7mmuZIN3WqhLGCIi1hP1J6c/ZVffGTlS82nejmihLRZGw3w6WdOo5vFuC84gPvvPIRhopBoDWOAOIlNph12w9qAm+4G9p2L/tZs1WnFuowhV0ZtB+SMEqRKG+3ZmN+/Kyq9fuGfDr/rt698YfHtxc5gW8uehmKEOw6W0PctHJgo4vilS/BsB5ZlwWiFmrEJE8WrPzLv5tISO/TII+Lkc3/9zyry71nv9rRhxMIwgTy3jqzgoDY/jSIYxoslwCn8yWh1jVnbW0d8P04ubgeOW/SwZ2cNJ0/+EBPVAmaKeQCkbW5MZXYcpXvv3nfX0kfWxLePHOFLzWZ29J0H/9x1xT2trTgtFgp2pjRsx4N5YxGMCIJxWASz4fuqkGV/6s1P/9F2MPpqkehXZzKDtgbOd31YloXJvAeZxBDMsKmd08gmpx6+a+kja8uLi5wA4OWnPj/X3mqfb3U2+XAwZJO1KhGzwBiHUhk4YyADZHGI9a0teKWidjSlherEO4IfXPgZ1g8aJgyLGiBXcMrS1NiMmcJ4acvaN/PYux56/FNHjhyhRqNhWPvEM97lzfWvjILYHvo+tFIkOAGkwTggBAPnBkwQLIsjiWXab3URSuVuXL/2tZlbD1RCzsy6H1K35+N630cvlWZ9OERWqW7t3H/oaSIyR27+XvSNJx7+pTgKjm4O+rrd6rCpcgljYxVkGhD8RpLgnEGmEjJJMLqyHdU2AveFzjpeN10j5ghE/RHgCdi2hSyRkP0hStWKmRqvUW1yMhi75cAbb/+N3ztn6nUShcvXd8r2hiGhQUYZL+eSMQC7kXCgtQaUgeAMxrbAuM51h0McLFdRycgcv76h5mZ3cssz5O3NIb0SgHsF5GslCv0w83w/71/rfMkYc7jZXCImRsnSuCRy26Nw3C1913UsyFQapbIbsJvKlAIZg9jhuKIidXD3Di0ci6qlgsg7NhUqOThEyCyC5TkoujkILkR7s5eJNHnTdz7z8IeWlppKDPzRmxytNSuWjudqXgSlkKaZZgxcZQrKaDBiYESA1jAgzWvFS5vBYH9a8FDK29qxLCZcBu4SxisV5EYOSAPlUhHDKOEbW11VNnjoxPKXn2VpJj2fFEs85wmuZYUzA2MUZUohlRJJkkJKCSkzKK3g5SwayXDshU779IDT5zhpCMfRZBO44JBcYqR8QDBYtgUjJXX6Ix70t6tXX3j+w+xyHJ45Nexd+vtL546+uj5YvdLpIYkTbZQCh4YjmHEEAzMKYZjo1pZPyq184LHJ7/+sctkpGQZs4+plHfsSaT+DlITRMECn1ca1C6uQpHV7c7s7Ot/CtLbfI070t++zLav4/PMvdYs8d2U7AtIsg+dwuLZAzuYkGDAIJLYDSSozKOfMZfw7VPKB9D25ahl6NCQtc8hCCy5xbMkOahOTGCvtVlUj2fDVa1/c6Mt7rV73TvHkN148+19xwykUWixLESUa/lAhiUYwOguJ4HHLNW7OI9fSySjevnb22HJh+fG/udO4wM69e5nqDZANN5GbnsXsrhm4hRKyYQ+84NDumenDn7r88uJtg837Wb1eZw888IB1I0clF2EMbM6YZ3M4Nh9ZTNa1NhC2bbgloLUZvPTSysZTzWcPke2UudIqDQIaqQhcuJBpiihRiDMJnXNZAmZEmt7xD7/74bj53bMPsUajoXfseFwBQN5xXlUqk5k2LDMEDZ4wJs5B2NowdjPWmhYAE/qjOTuOgUTzNEphl6tgExNQcYJsaxNKZkgTTSaWVPbs3A9XzxxaXFzkDAAajRujpvbkrxuYDQDQBiBimeM4A84txRgHMQIxdg4ABpH1dOKID7o7pq7la2MG3a7p99bh1Woozu8DWbaJNrtapaqFsfGHg+3g1PLysv5PIWkmKzhbhBgAAAAASUVORK5CYII=" style="height:28px;border-radius:6px" alt="쑥둥"><span>쑥둥</span><span class="logo-text"> 가계부</span> <span class="badge">2026</span></div>
+  <div class="logo"><img src="data:image/png;base64,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" style="height:42px;border-radius:8px" alt="쑥둥"><span>쑥둥</span><span class="logo-text"> 가계부</span> <span class="badge">2026</span></div>
   <div class="header-controls">
     <div class="month-sel">
       <button onclick="changeMonth(-1)">◀</button>
@@ -783,7 +783,7 @@ function renderDashboard() {
       responsive: true, maintainAspectRatio: false,
       cutout: '62%',
       plugins: {
-        legend: { display: true, position: 'right', labels: { color: textColor, font: { size: 11, family: 'Pretendard' }, boxWidth: 10, padding: 8 } },
+        legend: { display: true, position: 'right', labels: { color: textColor, font: { size: 11, family: 'Pretendard Variable' }, boxWidth: 10, padding: 8 } },
         tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmtFull(ctx.raw)}` } },
       },
     },
@@ -825,11 +825,11 @@ function chartOpts(gridColor, textColor) {
   return {
     responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
     scales: {
-      x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11, family: 'Pretendard' } } },
-      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11, family: 'Pretendard' }, callback: v => fmt(v) }, border: { display: false } },
+      x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11, family: 'Pretendard Variable' } } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11, family: 'Pretendard Variable' }, callback: v => fmt(v) }, border: { display: false } },
     },
     plugins: {
-      legend: { display: true, labels: { color: textColor, font: { size: 11, family: 'Pretendard' }, boxWidth: 10, padding: 12 } },
+      legend: { display: true, labels: { color: textColor, font: { size: 11, family: 'Pretendard Variable' }, boxWidth: 10, padding: 12 } },
       tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtFull(ctx.raw)}` } },
     },
   };
@@ -1200,7 +1200,7 @@ function renderAssets() {
     options: {
       responsive: true, maintainAspectRatio: false, cutout: '60%',
       plugins: {
-        legend: { position: 'right', labels: { color: isLight?'#8B95A1':'#8B949E', font: { size: 12, family: 'Pretendard' }, boxWidth: 12, padding: 10 } },
+        legend: { position: 'right', labels: { color: isLight?'#8B95A1':'#8B949E', font: { size: 12, family: 'Pretendard Variable' }, boxWidth: 12, padding: 10 } },
         tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmtFull(ctx.raw)}` } },
       },
     },
