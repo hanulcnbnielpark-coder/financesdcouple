@@ -362,7 +362,10 @@ body {
     <div class="card">
       <div class="card-title" style="justify-content:space-between">
         <div style="display:flex;align-items:center;gap:8px"><div class="dot" style="background:var(--red)"></div>지출 (변동)</div>
-        <button class="btn-add red" onclick="addDailyRow('expense')">+ 지출 추가</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-add" style="background:var(--purple)" onclick="document.getElementById('smsModal').style.display='flex'">📱 문자 붙여넣기</button>
+          <button class="btn-add red" onclick="addDailyRow('expense')">+ 지출 추가</button>
+        </div>
       </div>
       <div id="dailyExpenseList"></div>
     </div>
@@ -530,6 +533,25 @@ body {
       </div>
     </div>
     <input type="hidden" id="sheetId">
+  </div>
+</div>
+
+<!-- SMS Paste Modal -->
+<div id="smsModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--card);border-radius:16px;padding:24px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto">
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">📱 문자 붙여넣기</div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:14px">은행/카드 알림 문자를 붙여넣으세요. 여러 건 한번에 가능!</div>
+    <textarea id="smsInput" style="width:100%;height:180px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.6" placeholder="예시:
+[KB국민] 04/03 12:30 쿠팡 19,560원 결제
+[롯데카드] 04/02 씨유작전1호점 12,590원 승인
+[카카오뱅크] 출금 30,000원 청라에너지 04/03
+[케이뱅크] 이체출금 50,000원 홍길동"></textarea>
+    <div id="smsPreview" style="margin-top:12px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn-add" onclick="previewSMS()">미리보기</button>
+      <button class="btn-add green" onclick="applySMS()">적용하기</button>
+      <button class="btn-add" style="background:var(--muted)" onclick="document.getElementById('smsModal').style.display='none'">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -893,13 +915,14 @@ function renderDaily() {
     statCardHTML('잔액', md.net, md.net >= 0 ? 'var(--green)' : 'var(--red)'),
   ].join('');
 
-  // Income list
-  document.getElementById('dailyIncomeList').innerHTML = d.income.length ? d.income.map(item => 
+  // Sort by date (newest first)
+  const sortByDate = list => [...list].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  document.getElementById('dailyIncomeList').innerHTML = d.income.length ? sortByDate(d.income).map(item => 
     dailyRowHTML(item, 'income', null)
   ).join('') : '<div style="color:var(--sub);text-align:center;padding:16px;font-size:13px">수입 내역을 추가하세요</div>';
 
-  // Expense list
-  document.getElementById('dailyExpenseList').innerHTML = d.expenses.length ? d.expenses.map(item => 
+  document.getElementById('dailyExpenseList').innerHTML = d.expenses.length ? sortByDate(d.expenses).map(item => 
     dailyRowHTML(item, 'expense', null)
   ).join('') : '<div style="color:var(--sub);text-align:center;padding:16px;font-size:13px">지출 내역을 추가하세요</div>';
 }
@@ -2009,6 +2032,114 @@ function showSyncStatus(msg, color) {
   toast.style.opacity = '1';
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+// ==================== SMS PARSER ====================
+function parseSMS(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  const results = [];
+  const yr = state.year;
+  
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    
+    // Extract amount: 숫자+원 or 숫자,숫자+원
+    const amtMatch = t.match(/([\d,]+)\s*원/);
+    if (!amtMatch) continue;
+    const amount = Number(amtMatch[1].replace(/,/g, ''));
+    if (!amount || amount <= 0) continue;
+    
+    // Extract date: MM/DD or MM.DD or MM-DD or MMDD
+    let date = '';
+    const dateMatch = t.match(/(\d{1,2})[\/\.\-](\d{1,2})/);
+    if (dateMatch) {
+      const mm = String(dateMatch[1]).padStart(2,'0');
+      const dd = String(dateMatch[2]).padStart(2,'0');
+      date = `${yr}-${mm}-${dd}`;
+    } else {
+      date = todayStr();
+    }
+    
+    // Extract source (bank/card name in brackets)
+    const srcMatch = t.match(/\[([^\]]+)\]/);
+    const source = srcMatch ? srcMatch[1] : '';
+    
+    // Remove known parts to get description
+    let desc = t
+      .replace(/\[[^\]]*\]/g, '')           // [은행명]
+      .replace(/([\d,]+)\s*원/g, '')         // 금액
+      .replace(/\d{1,2}[\/\.\-]\d{1,2}/g, '') // 날짜
+      .replace(/\d{1,2}:\d{2}/g, '')         // 시간
+      .replace(/승인|결제|출금|입금|이체출금|일시불|사용/g, '')
+      .replace(/\s+/g, ' ').trim();
+    
+    // Auto-categorize
+    let cat = '기타';
+    const all = (desc + ' ' + source).toLowerCase();
+    if (/쿠팡|마켓|이마트|홈플|코스트코|식재료|반찬/i.test(all)) cat = '식비';
+    else if (/스타벅스|카페|커피|투썸|이디야|빽다방|메가커피/i.test(all)) cat = '식비';
+    else if (/치킨|피자|맥도|버거|배달|요기요|배민/i.test(all)) cat = '식비';
+    else if (/식당|식사|밥|점심|저녁|분식|김밥/i.test(all)) cat = '식비';
+    else if (/다이소|올리브|의류|옷|신발|쇼핑/i.test(all)) cat = '쇼핑';
+    else if (/주유|주차|톨게이트|교통|택시|버스|지하철|충전/i.test(all)) cat = '교통비';
+    else if (/씨유|CU|GS|세븐|편의점|미니/i.test(all)) cat = '쇼핑';
+    else if (/병원|약국|의료|치과|안과|피부과/i.test(all)) cat = '의료';
+    else if (/넷플|유튜브|구독|멜론|왓챠/i.test(all)) cat = '문화/여가';
+    else if (/에너지|전기|가스|수도|관리비/i.test(all)) cat = '관리비';
+    
+    // Detect income vs expense
+    const isIncome = /입금|급여|이자|환급|캐시백/.test(t);
+    
+    results.push({ date, amount, desc: desc || '결제', source, cat, type: isIncome ? 'income' : 'expense' });
+  }
+  return results;
+}
+
+function previewSMS() {
+  const text = document.getElementById('smsInput').value;
+  const items = parseSMS(text);
+  const preview = document.getElementById('smsPreview');
+  
+  if (!items.length) {
+    preview.innerHTML = '<div style="color:var(--red);font-size:13px">인식된 항목이 없습니다. 금액(원)이 포함된 문자를 붙여넣으세요.</div>';
+    return;
+  }
+  
+  preview.innerHTML = `<div style="font-size:13px;font-weight:600;margin-bottom:8px">${items.length}건 인식됨</div>` +
+    items.map((it, i) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--card2);border-radius:8px;margin-bottom:4px;font-size:13px">
+        <div>
+          <span style="color:${it.type==='income'?'var(--green)':'var(--red)'};font-weight:600">${it.type==='income'?'수입':'지출'}</span>
+          <span style="color:var(--sub);margin:0 4px">${it.date.slice(5)}</span>
+          <span>${it.desc}</span>
+          <span style="color:var(--sub);font-size:11px;margin-left:4px">${it.cat} · ${it.source}</span>
+        </div>
+        <span style="font-weight:700;font-variant-numeric:tabular-nums;color:${it.type==='income'?'var(--green)':'var(--text)'}">${it.type==='income'?'+':''}${it.amount.toLocaleString()}원</span>
+      </div>
+    `).join('');
+}
+
+function applySMS() {
+  const text = document.getElementById('smsInput').value;
+  const items = parseSMS(text);
+  if (!items.length) { previewSMS(); return; }
+  
+  items.forEach(it => {
+    const parts = it.date.split('-');
+    const mo = Number(parts[1]) || state.month;
+    const key = dk(Number(parts[0]) || state.year, mo);
+    if (!state.daily[key]) state.daily[key] = { income:[], expenses:[] };
+    const entry = { id: uid(), date: it.date, cat: it.cat, desc: it.desc, source: it.source, who: '공동', amount: it.amount };
+    if (it.type === 'income') state.daily[key].income.push(entry);
+    else state.daily[key].expenses.push(entry);
+  });
+  
+  saveState(); renderDaily(); renderDashboard();
+  document.getElementById('smsInput').value = '';
+  document.getElementById('smsPreview').innerHTML = '';
+  document.getElementById('smsModal').style.display = 'none';
+  showSyncStatus(`✓ ${items.length}건 추가 완료`, 'var(--green)');
 }
 
 // ==================== DIRECT SHEET READING ====================
