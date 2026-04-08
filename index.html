@@ -1280,21 +1280,21 @@ function renderSavings() {
     return `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
       <div style="overflow-x:auto">
         <div class="form-row" style="margin-bottom:0;align-items:flex-end;flex-wrap:wrap;gap:4px">
-          <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:70px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:130px">
             <span style="font-size:10px;color:var(--sub)">이름</span>
             <input class="form-input" value="${s.name||''}" placeholder="주택청약" onchange="updateAsset('savings','${s.id}','name',this.value)">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:100px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:110px">
             <span style="font-size:10px;color:var(--sub)">금액</span>
             <input class="form-input" style="text-align:right;font-weight:600" value="${fmtA(s.amount)}" placeholder="0"
               oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
               onchange="updateAsset('savings','${s.id}','amount',Number(this.value.replace(/,/g,'')))">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:70px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:75px">
             <span style="font-size:10px;color:var(--sub)">은행</span>
             <input class="form-input" value="${s.bank||s.where||''}" placeholder="은행" onchange="updateAsset('savings','${s.id}','bank',this.value)">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;width:55px">
+          <div style="display:flex;flex-direction:column;gap:2px;width:58px">
             <span style="font-size:10px;color:var(--sub)">이율%</span>
             <input type="number" step="0.1" class="form-input" style="text-align:center" value="${s.interestRate||''}" placeholder="3.5"
               onchange="updateAsset('savings','${s.id}','interestRate',Number(this.value))">
@@ -1304,7 +1304,7 @@ function renderSavings() {
             <input type="date" class="form-input" value="${normalizeDate(s.startDate)||''}"
               onchange="updateAsset('savings','${s.id}','startDate',this.value)">
           </div>
-          <button class="btn-del" onclick="removeAsset('savings','${s.id}')">✕</button>
+          <button class="btn-del" style="flex-shrink:0" onclick="removeAsset('savings','${s.id}')">✕</button>
         </div>
       </div>
       ${interestHTML}
@@ -1362,9 +1362,9 @@ function renderInvestments() {
         </select>
         <input class="form-input" style="width:40px;text-align:right;font-size:12px" value="${inv.qty||''}" placeholder="수량"
           onchange="updateAsset('investments','${inv.id}','qty',Number(this.value))">
-        <input class="form-input" style="width:75px;text-align:right;font-size:12px" value="${inv.avgPrice||''}" placeholder="${isUS?'$단가':'매수가'}"
-          oninput="this.value=this.value.replace(/[^0-9.]/g,'')"
-          onchange="updateAsset('investments','${inv.id}','avgPrice',Number(this.value))">
+        <input class="form-input" style="width:80px;text-align:right;font-size:12px" value="${inv.avgPrice ? (isUS ? inv.avgPrice : inv.avgPrice.toLocaleString()) : ''}" placeholder="${isUS?'$단가':'매수가'}"
+          oninput="this.value=this.value.replace(/[^0-9.,]/g,'')"
+          onchange="updateAsset('investments','${inv.id}','avgPrice',Number(this.value.replace(/,/g,'')))">
         ${isUS ? `<input class="form-input" style="width:60px;text-align:right;font-size:11px" value="${inv.buyExRate||''}" placeholder="환율"
           onchange="updateAsset('investments','${inv.id}','buyExRate',Number(this.value))">` : ''}
         <input type="date" class="form-input" style="width:115px;font-size:11px" value="${normalizeDate(inv.buyDate)||''}" title="매수일"
