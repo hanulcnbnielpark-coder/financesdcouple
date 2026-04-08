@@ -498,56 +498,38 @@ body {
       
       <div style="padding:14px 16px;background:var(--card2);border-radius:10px;margin-bottom:16px;font-size:13px;line-height:1.9">
         <div style="font-weight:700;margin-bottom:6px;font-size:15px">📌 사용 방법</div>
-        <div><b style="color:var(--green)">① 불러오기</b> — 시트 ID 입력 → 📡 시트에서 불러오기 (GAS 필요 없음!)</div>
-        <div><b style="color:var(--blue)">② 입력/수정</b> — 대시보드에서 예쁘게 입력</div>
-        <div><b style="color:var(--orange)">③ 저장</b> — 헤더 <b>↻ 동기화</b> 클릭 → 시트에 저장 (GAS 필요)</div>
-        <div><b style="color:var(--purple)">④ 다른 기기</b> — 시트 ID만 넣으면 자동으로 불러와짐</div>
+        <div><b style="color:var(--green)">① 페이지 열면</b> — 구글 시트에서 자동으로 불러옴</div>
+        <div><b style="color:var(--blue)">② 입력/수정</b> — 대시보드에서 데이터 입력</div>
+        <div><b style="color:var(--orange)">③ 동기화</b> — 헤더 <b>↻ 동기화</b> 클릭 → 시트에 저장 + 다시 불러오기</div>
+        <div><b style="color:var(--purple)">④ 다른 기기</b> — 열면 자동 불러오기 (같은 시트 연결)</div>
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">스프레드시트 ID</div>
-        <div class="setting-desc" style="line-height:1.7">
-          구글 시트 URL에서 <b style="color:var(--blue)">굵은 부분</b>을 복사하세요:<br>
-          <code style="display:block;background:var(--card2);padding:8px 12px;border-radius:6px;font-size:12px;margin:6px 0;word-break:break-all;line-height:1.6">
-            docs.google.com/spreadsheets/d/<b style="color:var(--blue);font-size:13px">1AbC2dEfGhIjKlMnOpQrStUvWxYz</b>/edit
-          </code>
-          그리고 시트를 웹에 게시해야 합니다:<br>
-          <b>파일 > 공유 > 웹에 게시 > 전체 문서 > 게시</b>
-        </div>
-        <input class="setting-input" id="sheetId" placeholder="스프레드시트 ID 붙여넣기" oninput="saveSettings()">
+        <div class="setting-label">GAS 웹앱 URL</div>
+        <div class="setting-desc">구글 시트 연동용 URL (이미 설정됨)</div>
+        <input class="setting-input" id="gasUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveSettings()">
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
-        <button class="btn-add green" onclick="loadFromSheet()" style="font-size:14px;padding:10px 20px">📡 시트에서 불러오기</button>
-        <button class="btn-add" onclick="exportToExcel()" style="font-size:14px;padding:10px 20px">📥 엑셀 백업</button>
-        <label class="btn-add" style="font-size:14px;padding:10px 20px;background:var(--cyan);cursor:pointer">
-          📤 엑셀 복원
-          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importFromExcel(this.files[0])">
-        </label>
+        <button class="btn-add" onclick="testConnection()" style="font-size:14px;padding:10px 18px">🔗 연결 테스트</button>
+        <button class="btn-add green" onclick="manualLoad()" style="font-size:14px;padding:10px 18px">📡 불러오기</button>
+        <button class="btn-add" style="background:var(--orange);font-size:14px;padding:10px 18px" onclick="syncWithSheets()">💾 시트에 저장</button>
         <button class="btn-add red" onclick="if(confirm('로컬 데이터를 모두 초기화할까요?')){localStorage.clear();location.reload();}">초기화</button>
       </div>
       <div id="syncStatus" style="margin-top:10px;font-size:13px;color:var(--sub)"></div>
     </div>
 
     <div class="card">
-      <div class="card-title" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.ta').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'">
-        <div class="dot" style="background:var(--orange)"></div>시트에 저장하기 (GAS 연동)
-        <span class="ta" style="margin-left:auto;font-size:12px;color:var(--sub)">▶</span>
-      </div>
-      <div style="display:none">
-        <div class="setting-desc" style="margin:10px 0;line-height:1.7">
-          대시보드에서 입력한 데이터를 시트에 <b>저장</b>하려면 GAS URL이 필요합니다.<br>
-          읽기만 한다면 위 시트 ID만으로 충분합니다.
-        </div>
-        <div class="setting-group">
-          <div class="setting-label">GAS 웹앱 URL</div>
-          <input class="setting-input" id="gasUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveSettings()">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn-add" onclick="testConnection()">연결 테스트</button>
-          <button class="btn-add green" onclick="syncWithSheets()">시트에 저장</button>
-        </div>
+      <div class="card-title"><div class="dot" style="background:var(--cyan)"></div>엑셀 백업/복원</div>
+      <div class="setting-desc" style="margin-bottom:12px">다른 기기로 데이터를 옮기거나 백업할 때 사용하세요.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-add" onclick="exportToExcel()" style="font-size:14px;padding:10px 20px">📥 엑셀 내보내기</button>
+        <label class="btn-add" style="font-size:14px;padding:10px 20px;background:var(--cyan);cursor:pointer">
+          📤 엑셀 가져오기
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importFromExcel(this.files[0])">
+        </label>
       </div>
     </div>
+    <input type="hidden" id="sheetId">
   </div>
 </div>
 
@@ -2000,10 +1982,10 @@ async function headerSync() {
   btn.classList.add('syncing');
   document.getElementById('syncIcon').textContent = '⟳';
   if (state.gasUrl) {
-    // PUSH to sheet via GAS
-    await syncWithSheets();
+    const ok = await syncWithSheets();
+    if (ok) await loadFromSheets();
   } else {
-    showSyncStatus('⚠ GAS URL이 없어서 저장 불가 — 설정 > GAS 연동에서 입력', 'var(--red)');
+    showSyncStatus('⚠ GAS URL을 설정에서 입력하세요', 'var(--red)');
   }
   btn.classList.remove('syncing');
   document.getElementById('syncIcon').textContent = '↻';
@@ -2258,34 +2240,21 @@ loadTheme();
 loadState();
 renderAll();
 
-// Auto-load on startup: prefer direct sheet > GAS > localStorage
+// Auto-load on startup
 (async () => {
   const banner = document.getElementById('loadingBanner');
-  if (state.sheetId) {
+  if (state.gasUrl) {
     banner.style.display = 'block';
-    banner.textContent = '📡 스프레드시트에서 불러오는 중...';
-    try {
-      await loadFromSheet();
-      banner.textContent = '✓ 데이터 로드 완료';
-      banner.style.background = 'var(--green)';
-      setTimeout(() => banner.style.display = 'none', 1500);
-    } catch(e) {
-      banner.textContent = '⚠ 시트 불러오기 실패 — 설정에서 시트 ID 확인';
-      banner.style.background = 'var(--red)';
-      setTimeout(() => banner.style.display = 'none', 4000);
-    }
-  } else if (state.gasUrl) {
-    banner.style.display = 'block';
-    banner.textContent = '📡 GAS에서 불러오는 중...';
+    banner.textContent = '📡 데이터 불러오는 중...';
     try {
       const ok = await loadFromSheets();
-      banner.textContent = ok ? '✓ 데이터 로드 완료' : '⚠ GAS 불러오기 실패';
-      banner.style.background = ok ? 'var(--green)' : 'var(--red)';
-      setTimeout(() => banner.style.display = 'none', ok ? 1500 : 4000);
+      banner.textContent = ok ? '✓ 데이터 로드 완료' : '⚠ 데이터 없음 — 설정 확인';
+      banner.style.background = ok ? 'var(--green)' : 'var(--orange)';
+      setTimeout(() => banner.style.display = 'none', ok ? 1200 : 3000);
     } catch(e) {
-      banner.textContent = '⚠ 연결 실패 — 로컬 데이터 표시 중';
-      banner.style.background = 'var(--red)';
-      setTimeout(() => banner.style.display = 'none', 3000);
+      banner.textContent = '로컬 데이터 표시 중';
+      banner.style.background = 'var(--muted)';
+      setTimeout(() => banner.style.display = 'none', 2000);
     }
   }
 })();
