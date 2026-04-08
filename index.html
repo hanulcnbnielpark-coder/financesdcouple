@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #0D1117; --card: #161B22; --card2: #1C2128; --border: #21262D;
@@ -493,38 +494,58 @@ body {
   <!-- ===== 설정 ===== -->
   <div class="tab-page" id="page-settings">
     <div class="card">
-      <div class="card-title"><div class="dot" style="background:var(--blue)"></div>Google Sheets 연동</div>
+      <div class="card-title"><div class="dot" style="background:var(--green)"></div>데이터 관리</div>
+      
+      <div style="padding:14px 16px;background:var(--card2);border-radius:10px;margin-bottom:16px;font-size:13px;line-height:1.9">
+        <div style="font-weight:700;margin-bottom:6px;font-size:15px">📌 사용 방법</div>
+        <div><b style="color:var(--green)">① 불러오기</b> — 시트 ID 입력 → 📡 시트에서 불러오기 (GAS 필요 없음!)</div>
+        <div><b style="color:var(--blue)">② 입력/수정</b> — 대시보드에서 예쁘게 입력</div>
+        <div><b style="color:var(--orange)">③ 저장</b> — 헤더 <b>↻ 동기화</b> 클릭 → 시트에 저장 (GAS 필요)</div>
+        <div><b style="color:var(--purple)">④ 다른 기기</b> — 시트 ID만 넣으면 자동으로 불러와짐</div>
+      </div>
+
       <div class="setting-group">
-        <div class="setting-label">GAS 웹앱 URL</div>
-        <div class="setting-desc">
-          Google Apps Script를 배포한 웹앱 URL을 입력하세요.<br>
-          연동하면 데이터가 구글 시트에 실시간 저장/불러오기 됩니다.
+        <div class="setting-label">스프레드시트 ID</div>
+        <div class="setting-desc" style="line-height:1.7">
+          구글 시트 URL에서 <b style="color:var(--blue)">굵은 부분</b>을 복사하세요:<br>
+          <code style="display:block;background:var(--card2);padding:8px 12px;border-radius:6px;font-size:12px;margin:6px 0;word-break:break-all;line-height:1.6">
+            docs.google.com/spreadsheets/d/<b style="color:var(--blue);font-size:13px">1AbC2dEfGhIjKlMnOpQrStUvWxYz</b>/edit
+          </code>
+          그리고 시트를 웹에 게시해야 합니다:<br>
+          <b>파일 > 공유 > 웹에 게시 > 전체 문서 > 게시</b>
         </div>
-        <input class="setting-input" id="gasUrl" placeholder="https://script.google.com/macros/s/..." 
-          oninput="saveSettings()">
+        <input class="setting-input" id="sheetId" placeholder="스프레드시트 ID 붙여넣기" oninput="saveSettings()">
       </div>
-      <div class="setting-group">
-        <div class="setting-label">시트 ID (선택)</div>
-        <input class="setting-input" id="sheetId" placeholder="스프레드시트 ID" oninput="saveSettings()">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn-add green" onclick="loadFromSheet()" style="font-size:14px;padding:10px 20px">📡 시트에서 불러오기</button>
+        <button class="btn-add" onclick="exportToExcel()" style="font-size:14px;padding:10px 20px">📥 엑셀 백업</button>
+        <label class="btn-add" style="font-size:14px;padding:10px 20px;background:var(--cyan);cursor:pointer">
+          📤 엑셀 복원
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importFromExcel(this.files[0])">
+        </label>
+        <button class="btn-add red" onclick="if(confirm('로컬 데이터를 모두 초기화할까요?')){localStorage.clear();location.reload();}">초기화</button>
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn-add" onclick="testConnection()">연결 테스트</button>
-        <button class="btn-add" style="background:var(--cyan)" onclick="manualLoad()">시트에서 불러오기</button>
-        <button class="btn-add green" onclick="syncWithSheets()">시트에 저장</button>
-        <button class="btn-add red" onclick="if(confirm('로컬 데이터를 모두 초기화할까요?')){localStorage.clear();location.reload();}">데이터 초기화</button>
-      </div>
-      <div id="syncStatus" style="margin-top:12px;font-size:12px;color:var(--sub)"></div>
+      <div id="syncStatus" style="margin-top:10px;font-size:13px;color:var(--sub)"></div>
     </div>
+
     <div class="card">
-      <div class="card-title"><div class="dot" style="background:var(--green)"></div>GAS 코드 가이드</div>
-      <div class="setting-desc" style="line-height:1.8">
-        아래 코드를 Google Apps Script에 붙여넣고 웹앱으로 배포하세요:<br><br>
-        <code style="background:var(--card2);padding:2px 6px;border-radius:4px;font-size:12px">
-          Apps Script > 새 프로젝트 > Code.gs에 붙여넣기 > 배포 > 웹앱
-        </code><br><br>
-        ① 시트 구조: <strong>transactions</strong> (일별내역), <strong>fixed</strong> (고정비), <strong>assets</strong> (자산/부채)<br>
-        ② 배포 시 "누구나 액세스 가능" 선택<br>
-        ③ URL을 위 입력란에 붙여넣기
+      <div class="card-title" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.ta').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'">
+        <div class="dot" style="background:var(--orange)"></div>시트에 저장하기 (GAS 연동)
+        <span class="ta" style="margin-left:auto;font-size:12px;color:var(--sub)">▶</span>
+      </div>
+      <div style="display:none">
+        <div class="setting-desc" style="margin:10px 0;line-height:1.7">
+          대시보드에서 입력한 데이터를 시트에 <b>저장</b>하려면 GAS URL이 필요합니다.<br>
+          읽기만 한다면 위 시트 ID만으로 충분합니다.
+        </div>
+        <div class="setting-group">
+          <div class="setting-label">GAS 웹앱 URL</div>
+          <input class="setting-input" id="gasUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveSettings()">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn-add" onclick="testConnection()">연결 테스트</button>
+          <button class="btn-add green" onclick="syncWithSheets()">시트에 저장</button>
+        </div>
       </div>
     </div>
   </div>
@@ -594,7 +615,7 @@ let state = {
   liabilities: [],
   // Settings
   gasUrl: 'https://script.google.com/macros/s/AKfycbybhBsw4-jZ3CAP6KrVP7Vok6IEQp9GI5vLML-YlnxYcrAF8nL45n2Y_uI1zfNulSFmeQ/exec',
-  sheetId: '',
+  sheetId: '1GcJm6VNTret5LEf4KPkxtuC-En8WLgKoLcUCRRH5Ysk',
   exchangeRate: 1400,
   customCats: {},
 };
@@ -602,12 +623,14 @@ let state = {
 function loadState() {
   try {
     const defaultGasUrl = state.gasUrl;
+    const defaultSheetId = state.sheetId;
     const saved = localStorage.getItem(STORE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       state = { ...state, ...parsed };
     }
     if (!state.gasUrl) state.gasUrl = defaultGasUrl;
+    if (!state.sheetId) state.sheetId = defaultSheetId;
     state.month = Number(state.month) || (new Date().getMonth() + 1);
     state.year = Number(state.year) || new Date().getFullYear();
     // Migrate old keys + cleanup NaN keys
@@ -1976,7 +1999,12 @@ async function headerSync() {
   const btn = document.getElementById('syncBtn');
   btn.classList.add('syncing');
   document.getElementById('syncIcon').textContent = '⟳';
-  await syncWithSheets();
+  if (state.gasUrl) {
+    // PUSH to sheet via GAS
+    await syncWithSheets();
+  } else {
+    showSyncStatus('⚠ GAS URL이 없어서 저장 불가 — 설정 > GAS 연동에서 입력', 'var(--red)');
+  }
   btn.classList.remove('syncing');
   document.getElementById('syncIcon').textContent = '↻';
 }
@@ -2001,6 +2029,216 @@ function showSyncStatus(msg, color) {
   toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }
 
+// ==================== DIRECT SHEET READING ====================
+async function fetchSheetCSV(sheetId, sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${sheetName} 시트를 찾을 수 없습니다`);
+  const text = await res.text();
+  const rows = [];
+  // Simple CSV parser
+  let inQuote = false, field = '', row = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { inQuote = !inQuote; }
+    else if (c === ',' && !inQuote) { row.push(field.trim()); field = ''; }
+    else if ((c === '\n' || c === '\r') && !inQuote) { 
+      if (field || row.length) { row.push(field.trim()); rows.push(row); row = []; field = ''; }
+    }
+    else { field += c; }
+  }
+  if (field || row.length) { row.push(field.trim()); rows.push(row); }
+  return rows;
+}
+
+function csvToObjects(rows) {
+  if (rows.length < 2) return [];
+  const headers = rows[0];
+  const nums = ['amount','day','qty','avgPrice','currentPrice','totalPay','depYears','residualRate','interestRate','loanYears','buyExRate','growthRate'];
+  return rows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => {
+      const v = row[i] || '';
+      obj[h] = nums.includes(h) ? Number(v) || 0 : v;
+    });
+    return obj;
+  });
+}
+
+async function loadFromSheet() {
+  const sid = state.sheetId || document.getElementById('sheetId')?.value;
+  if (!sid) { showSyncStatus('⚠ 스프레드시트 ID를 입력하세요', 'var(--red)'); return; }
+  state.sheetId = sid; saveState();
+  showSyncStatus('📡 시트에서 직접 불러오는 중...', 'var(--blue)');
+
+  try {
+    // 1. Transactions
+    try {
+      const txRows = await fetchSheetCSV(sid, 'transactions');
+      if (txRows.length > 1) {
+        state.daily = {};
+        const headers = txRows[0];
+        txRows.slice(1).forEach(row => {
+          const obj = {};
+          headers.forEach((h, i) => obj[h] = row[i] || '');
+          const rawKey = obj.key || obj.month || '';
+          const type = obj.type || '';
+          const item = { id: obj.id, date: normalizeDate(obj.date), cat: obj.cat, desc: obj.desc, source: obj.source, who: obj.who, amount: Number(obj.amount) || 0 };
+          
+          // Determine correct key
+          let key;
+          if (/^\d{4}-\d{1,2}$/.test(rawKey)) { key = rawKey; }
+          else if (/^\d{1,2}$/.test(rawKey)) { key = dk(state.year, Number(rawKey)); }
+          else if (item.date) {
+            const parts = item.date.split('-');
+            key = parts.length >= 2 ? dk(Number(parts[0])||state.year, Number(parts[1])||state.month) : dk(state.year, state.month);
+          } else { key = dk(state.year, state.month); }
+          
+          if (!state.daily[key]) state.daily[key] = { income: [], expenses: [] };
+          if (type === 'income') state.daily[key].income.push(item);
+          else state.daily[key].expenses.push(item);
+        });
+      }
+    } catch(e) { console.log('[쑥둥] transactions:', e.message); }
+
+    // 2. Fixed
+    try {
+      const rows = await fetchSheetCSV(sid, 'fixed');
+      if (rows.length > 1) state.fixed = csvToObjects(rows);
+    } catch(e) { console.log('[쑥둥] fixed:', e.message); }
+
+    // 3. Savings
+    try {
+      const rows = await fetchSheetCSV(sid, 'savings');
+      if (rows.length > 1) state.savings = csvToObjects(rows);
+    } catch(e) {}
+
+    // 4. Investments
+    try {
+      const rows = await fetchSheetCSV(sid, 'investments');
+      if (rows.length > 1) state.investments = csvToObjects(rows);
+    } catch(e) {}
+
+    // 5. Fixed Assets
+    try {
+      const rows = await fetchSheetCSV(sid, 'fixedAssets');
+      if (rows.length > 1) state.fixedAssets = csvToObjects(rows).map(fa => ({
+        ...fa, purchaseDate: normalizeDate(fa.purchaseDate), depYears: fa.depYears || 5
+      }));
+    } catch(e) {}
+
+    // 6. Liabilities
+    try {
+      const rows = await fetchSheetCSV(sid, 'liabilities');
+      if (rows.length > 1) state.liabilities = csvToObjects(rows).map(li => ({
+        ...li, startDate: normalizeDate(li.startDate)
+      }));
+    } catch(e) {}
+
+    // 7. Prices (exchange rate + current prices)
+    try {
+      const rows = await fetchSheetCSV(sid, '_prices');
+      if (rows.length > 1) {
+        const headers = rows[0];
+        const fIdx = headers.indexOf('현재환율');
+        if (fIdx >= 0 && rows[1][fIdx]) { const r = Number(rows[1][fIdx]); if (r > 0) state.exchangeRate = r; }
+        rows.slice(1).forEach(row => {
+          const obj = {}; headers.forEach((h,i) => obj[h] = row[i]||'');
+          const inv = state.investments.find(x => x.id === obj.id);
+          if (inv) {
+            if (Number(obj.price) > 0) inv.currentPrice = Number(obj.price);
+            if (Number(obj['매수환율']) > 0 && inv.market === '미국') inv.buyExRate = Number(obj['매수환율']);
+          }
+        });
+      }
+    } catch(e) {}
+
+    const curKey = dk(state.year, state.month);
+    const cd = state.daily[curKey] || {};
+    saveState(); renderAll();
+    showSyncStatus(`✓ 완료 — 고정비 ${state.fixed.length}건, ${state.month}월 수입 ${cd.income?.length||0} 지출 ${cd.expenses?.length||0}건`, 'var(--green)');
+  } catch(e) {
+    showSyncStatus(`✕ 실패: ${e.message}`, 'var(--red)');
+  }
+}
+
+// ==================== EXCEL EXPORT/IMPORT ====================
+function exportToExcel() {
+  const wb = XLSX.utils.book_new();
+  
+  const txRows = [['key','type','id','date','cat','desc','source','who','amount']];
+  Object.entries(state.daily).forEach(([key, d]) => {
+    (d.income||[]).forEach(i => txRows.push([key,'income',i.id,i.date,i.cat,i.desc,i.source||'',i.who||'',i.amount]));
+    (d.expenses||[]).forEach(i => txRows.push([key,'expense',i.id,i.date,i.cat,i.desc,i.source||'',i.who||'',i.amount]));
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(txRows), 'transactions');
+  
+  const addSheet = (name, headers, data) => {
+    const rows = [headers, ...data.map(d => headers.map(h => d[h]??''))];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+  };
+  addSheet('fixed', ['id','cat','desc','amount','day','method','account','who','totalPay','startDate'], state.fixed);
+  addSheet('savings', ['id','name','amount','where'], state.savings);
+  addSheet('investments', ['id','name','code','broker','market','qty','avgPrice','amount','currentPrice','buyDate','buyExRate','note'], state.investments);
+  addSheet('fixedAssets', ['id','name','amount','note','purchaseDate','depYears','residualRate'], state.fixedAssets);
+  addSheet('liabilities', ['id','name','amount','interestRate','startDate','loanYears','repayType','growthRate','note'], state.liabilities);
+  
+  XLSX.writeFile(wb, `쑥둥_가계부_${state.year}_${String(state.month).padStart(2,'0')}.xlsx`);
+  showSyncStatus('✓ 엑셀 파일 다운로드 완료', 'var(--green)');
+}
+
+function importFromExcel(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      
+      // Transactions
+      const txSheet = wb.Sheets['transactions'];
+      if (txSheet) {
+        const rows = XLSX.utils.sheet_to_json(txSheet);
+        state.daily = {};
+        rows.forEach(r => {
+          const key = String(r.key || r.month || dk(state.year, state.month));
+          const finalKey = /^\d{4}-\d{1,2}$/.test(key) ? key : /^\d{1,2}$/.test(key) ? dk(state.year, Number(key)) : dk(state.year, state.month);
+          if (!state.daily[finalKey]) state.daily[finalKey] = { income:[], expenses:[] };
+          const item = { id: String(r.id||uid()), date: normalizeDate(r.date), cat: r.cat||'', desc: r.desc||'', source: r.source||'', who: r.who||'', amount: Number(r.amount)||0 };
+          if (r.type === 'income') state.daily[finalKey].income.push(item);
+          else state.daily[finalKey].expenses.push(item);
+        });
+      }
+      
+      const loadSheet = (name, numFields) => {
+        const s = wb.Sheets[name];
+        if (!s) return null;
+        return XLSX.utils.sheet_to_json(s).map(r => {
+          const obj = {...r};
+          (numFields||[]).forEach(f => { if (obj[f] !== undefined) obj[f] = Number(obj[f])||0; });
+          return obj;
+        });
+      };
+      
+      const fix = loadSheet('fixed', ['amount','day','totalPay']);
+      if (fix?.length) state.fixed = fix;
+      const sav = loadSheet('savings', ['amount']);
+      if (sav?.length) state.savings = sav;
+      const inv = loadSheet('investments', ['qty','avgPrice','amount','currentPrice','buyExRate']);
+      if (inv?.length) state.investments = inv;
+      const fa = loadSheet('fixedAssets', ['amount','depYears','residualRate']);
+      if (fa?.length) state.fixedAssets = fa;
+      const lia = loadSheet('liabilities', ['amount','interestRate','loanYears','growthRate']);
+      if (lia?.length) state.liabilities = lia;
+      
+      saveState(); renderAll();
+      showSyncStatus(`✓ 엑셀 복원 완료 — 고정비 ${state.fixed.length}건`, 'var(--green)');
+    } catch(err) {
+      showSyncStatus(`✕ 엑셀 읽기 실패: ${err.message}`, 'var(--red)');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 // ==================== RENDER ALL ====================
 function renderAll() {
   document.getElementById('monthLabel').textContent = `${state.month}월`;
@@ -2020,27 +2258,37 @@ loadTheme();
 loadState();
 renderAll();
 
-// Auto-load from sheets on startup
-if (state.gasUrl) {
+// Auto-load on startup: prefer direct sheet > GAS > localStorage
+(async () => {
   const banner = document.getElementById('loadingBanner');
-  banner.style.display = 'block';
-  banner.textContent = '📡 시트에서 데이터 불러오는 중...';
-  loadFromSheets().then((ok) => {
-    if (ok) {
-      banner.textContent = '✓ 시트 데이터 로드 완료';
+  if (state.sheetId) {
+    banner.style.display = 'block';
+    banner.textContent = '📡 스프레드시트에서 불러오는 중...';
+    try {
+      await loadFromSheet();
+      banner.textContent = '✓ 데이터 로드 완료';
       banner.style.background = 'var(--green)';
       setTimeout(() => banner.style.display = 'none', 1500);
-    } else {
-      banner.textContent = '⚠ 시트에서 데이터를 가져오지 못했습니다 — 설정에서 GAS URL을 확인하세요';
+    } catch(e) {
+      banner.textContent = '⚠ 시트 불러오기 실패 — 설정에서 시트 ID 확인';
       banner.style.background = 'var(--red)';
-      setTimeout(() => banner.style.display = 'none', 5000);
+      setTimeout(() => banner.style.display = 'none', 4000);
     }
-  }).catch((e) => {
-    banner.textContent = `✕ 시트 연결 실패: ${e.message || '네트워크 오류'} — GAS URL을 확인하세요`;
-    banner.style.background = 'var(--red)';
-    setTimeout(() => banner.style.display = 'none', 5000);
-  });
-}
+  } else if (state.gasUrl) {
+    banner.style.display = 'block';
+    banner.textContent = '📡 GAS에서 불러오는 중...';
+    try {
+      const ok = await loadFromSheets();
+      banner.textContent = ok ? '✓ 데이터 로드 완료' : '⚠ GAS 불러오기 실패';
+      banner.style.background = ok ? 'var(--green)' : 'var(--red)';
+      setTimeout(() => banner.style.display = 'none', ok ? 1500 : 4000);
+    } catch(e) {
+      banner.textContent = '⚠ 연결 실패 — 로컬 데이터 표시 중';
+      banner.style.background = 'var(--red)';
+      setTimeout(() => banner.style.display = 'none', 3000);
+    }
+  }
+})();
 </script>
 </body>
 </html>
